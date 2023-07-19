@@ -1,0 +1,16 @@
+version: '3'
+services:
+  oauth2-proxy:
+    image: oauth2-proxy-image
+    ports:
+      - "4180:4180"
+    environment:
+      - OAUTH2_PROXY_CONFIG=/config/oauth2_proxy.cfg
+    volumes:
+      - ./oauth2_proxy.cfg:/config/oauth2_proxy.cfg:ro
+
+  my-rust-app:
+    image: my-rust-app-image
+    ports:
+      - "8000:8000"
+
