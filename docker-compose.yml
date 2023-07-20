@@ -1,16 +1,50 @@
-version: '3'
-services:
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy 
-    ports:
-      - "4180:4180"
-    environment:
-      - OAUTH2_PROXY_CONFIG=/config/oauth2_proxy.cfg
-    volumes:
-      - ./oauth2_proxy.cfg:/config/oauth2_proxy.cfg:ro
+version: '3.0'
 
+services:
   my-rust-app:
     image: my-rust-app-image
+    hostname: my-rust-app
     ports:
       - "8000:8000"
+    depends_on:
+      - oauth2-proxy
+    # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+    networks:
+      my-rust-app-network: {}
+
+  oauth2-proxy:
+    container_name: oauth2-proxy
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    command: --config /etc/oauth2_proxy.cfg
+    ports:
+      - 4180:4180/tcp
+    hostname: oauth2-proxy
+    environment:
+      - OAUTH2_PROXY_CONFIG=/etc/oauth2_proxy.cfg
+    volumes:
+      - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
+    restart: unless-stopped
+    # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+    networks:
+      my-rust-app-network: {}
+
+  # NOTE: dex is not needed since for now, we're using oauth2 against google-cloud
+  #dex:
+  #  container_name: dex
+  #  image: ghcr.io/dexidp/dex:v2.30.3
+  #  command: dex serve /etc/dex.yaml
+  #  ports:
+  #    - 4190:4190/tcp
+  #  hostname: dex
+  #  volumes:
+  #    - "./dex.yaml:/etc/dex.yaml:ro"
+  #  restart: unless-stopped
+  #  networks:
+  #    my-rust-app-network:
+  #      aliases:
+  #        - dex.localhost
+
+# from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+networks:
+  my-rust-app-network: {}
 

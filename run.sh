@@ -6,10 +6,19 @@ if ! [ -e docker-compose.yml ] ; then
 fi
 
 # stop images if running
-docker-compose down
+docker-compose down --remove-orphans
 
 # first, build images
 ./build_image.sh
 
+# Show current configuration prior to running
+docker-compose config
+
 # now run
 docker-compose up -d
+docker-compose images ls
+
+# wait a bit before dumping log
+sleep 5
+date
+docker-compose logs
