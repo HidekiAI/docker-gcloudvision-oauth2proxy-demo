@@ -4,6 +4,7 @@ services:
   my-rust-app:
     image: my-rust-app-image
     hostname: my-rust-app
+    # port forward 8000 on THIS host to port 8000 in the container
     ports:
       - "8000:8000"
     depends_on:
@@ -16,6 +17,7 @@ services:
     container_name: oauth2-proxy
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     command: --config /etc/oauth2_proxy.cfg
+    # port-forward 4180 on THIS machine to 4180 in the container
     ports:
       - 4180:4180/tcp
     hostname: oauth2-proxy
@@ -44,7 +46,57 @@ services:
   #      aliases:
   #        - dex.localhost
 
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./vhost.d:/etc/nginx/vhost.d:ro
+      - ./certs:/etc/nginx/certs:ro
+  gateway:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PORT=4180
+  manga-furigana-ouath2-callback:
+    image: image_manga-furigana-ouath2-callback
+    environment:
+      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PORT=4180
+  manga-furigana:
+    image: image_manga-furigana
+    environment:
+      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PORT=4180
+  oauth2-callback:
+    image: image_oauth2-callback
+    environment:
+      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PORT=4180
+  default:
+    image: image_default
+    environment:
+      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PORT=80
+  internal-developers-default:
+    image: image_internal-developers
+    environment:
+      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PORT=4180
+  www-default:
+    image: image_www-hai-techwares 
+    environment:
+      - VIRTUAL_HOST=www.hai-techwares.com
+      - VIRTUAL_PORT=80
+
 # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
 networks:
-  my-rust-app-network: {}
+  my-rust-app-network: 
+    ipam:
+      config:
+        # assign a subnet mainly for debugging purposes, otherwise the port exposed on THIS host should suffice
+        - subnet: 10.86.10.0/24
+
 
