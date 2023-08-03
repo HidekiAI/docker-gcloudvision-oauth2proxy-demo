@@ -17,8 +17,14 @@ docker build -t my-rust-app-image .
 popd
 
 docker image ls
-docker scout quickview
-sleep 5
-docker scout cves my-rust-app-image 
-sleep 5
-docker scout recommendations my-rust-app-image
+
+# Note: 'docker scount' only exists on Windows?
+if [ x"$1" != x"" ] ; then
+    docker scout quickview
+    sleep 5
+
+    docker scout cves my-rust-app-image 
+    sleep 5
+
+    docker scout recommendations my-rust-app-image
+fi
