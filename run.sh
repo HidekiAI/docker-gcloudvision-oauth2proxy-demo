@@ -5,11 +5,14 @@ if ! [ -e docker-compose.yml ] ; then
 	exit -1
 fi
 
+./stop.sh
+
 # stop images if running
 docker-compose down --remove-orphans
 
 # first, build images
 ./build_image.sh
+sleep 5
 
 # Show current configuration prior to running
 docker-compose config
@@ -25,10 +28,11 @@ docker-compose ls --all
 docker-compose top
 docker stats --no-stream
 
-_CONTAINER_ID=$(docker stats --no-stream | grep "auth2-proxy" | gawk '{ print $1}' )
+_CONTAINER_ID=$(docker stats --no-stream | grep "auth2" | gawk '{ print $1}' )
 if [ x"${_CONTAINER_ID}" != x"" ] ; then
 	# show how to login to running container, since the target container is running alpine-linux, have to /bin/sh to it rather than /bin/bash
 	echo "# docker exec --interactive --tty ${_CONTAINER_ID} sh"
 else
-	echo "# WARNING: Could not find a container 'auth2-proxy' as a running container"
+	echo "# WARNING: Could not find a container 'oauth2-proxy' as a running container (via '$ docker stats --no-stream')"
 fi
+

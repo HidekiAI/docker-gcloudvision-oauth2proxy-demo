@@ -1,52 +1,9 @@
 version: '3.0'
 
 services:
-  my-rust-app:
-    image: my-rust-app-image
-    hostname: my-rust-app
-    # port forward 8000 on THIS host to port 8000 in the container
-    ports:
-      - "8000:8000"
-    depends_on:
-      - oauth2-proxy
-    # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
-    networks:
-      my-rust-app-network: {}
-
-  oauth2-proxy:
-    container_name: oauth2-proxy
-    image: quay.io/oauth2-proxy/oauth2-proxy:latest
-    command: --config /etc/oauth2_proxy.cfg
-    # port-forward 4180 on THIS machine to 4180 in the container
-    ports:
-      - 4180:4180/tcp
-    hostname: oauth2-proxy
-    environment:
-      - OAUTH2_PROXY_CONFIG=/etc/oauth2_proxy.cfg
-    volumes:
-      - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
+  gateway:
+    hostname: gateway
     restart: unless-stopped
-    # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
-    networks:
-      my-rust-app-network: {}
-
-  # NOTE: dex is not needed since for now, we're using oauth2 against google-cloud
-  #dex:
-  #  container_name: dex
-  #  image: ghcr.io/dexidp/dex:v2.30.3
-  #  command: dex serve /etc/dex.yaml
-  #  ports:
-  #    - 4190:4190/tcp
-  #  hostname: dex
-  #  volumes:
-  #    - "./dex.yaml:/etc/dex.yaml:ro"
-  #  restart: unless-stopped
-  #  networks:
-  #    my-rust-app-network:
-  #      aliases:
-  #        - dex.localhost
-
-  nginx-proxy:
     image: jwilder/nginx-proxy
     ports:
       - "80:80"
@@ -55,48 +12,67 @@ services:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./vhost.d:/etc/nginx/vhost.d:ro
       - ./certs:/etc/nginx/certs:ro
-  gateway:
-    image: jwilder/whoami
+    networks:
+      my-rust-app-network:
+        ipv4_address: 10.86.86.86
+        aliases:
+          - internal-developers.hai-techwares.com
+          - www.hai-techwares.com
+
+  internal-developers:
+    hostname: internal-developers
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    command: --config /etc/oauth2_proxy.cfg
+    # port-forward 4180 on THIS machine to 4180 in the container
+    ports:
+      - 4180:4180/tcp
     environment:
       - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_PROTO=https
       - VIRTUAL_PORT=4180
-  manga-furigana-ouath2-callback:
-    image: image_manga-furigana-ouath2-callback
-    environment:
-      - VIRTUAL_HOST=internal-developers.hai-techwares.com
-      - VIRTUAL_PORT=4180
-  manga-furigana:
-    image: image_manga-furigana
-    environment:
-      - VIRTUAL_HOST=internal-developers.hai-techwares.com
-      - VIRTUAL_PORT=4180
-  oauth2-callback:
-    image: image_oauth2-callback
-    environment:
-      - VIRTUAL_HOST=internal-developers.hai-techwares.com
-      - VIRTUAL_PORT=4180
-  default:
-    image: image_default
-    environment:
-      - VIRTUAL_HOST=internal-developers.hai-techwares.com
-      - VIRTUAL_PORT=80
-  internal-developers-default:
-    image: image_internal-developers
-    environment:
-      - VIRTUAL_HOST=internal-developers.hai-techwares.com
-      - VIRTUAL_PORT=4180
-  www-default:
-    image: image_www-hai-techwares 
+      - OAUTH2_PROXY_CONFIG=/etc/oauth2_proxy.cfg
+    volumes:
+      - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
+    restart: unless-stopped
+    # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+    networks:
+      my-rust-app-network: 
+        #dhcp: true
+
+  www:
+    hostname: www
+    # rather than using apache2, we use nginx with static html files
+    image: nginx:latest
+    volumes:
+      - ./www:/usr/share/nginx/html:ro
     environment:
       - VIRTUAL_HOST=www.hai-techwares.com
-      - VIRTUAL_PORT=80
+      - VIRTUAL_PROTO=https
+      - VIRTUAL_PORT=80,443
+    networks:
+      my-rust-app-network: 
+        #dhcp: true
 
-# from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+  my-rust-app:
+    hostname: my-rust-app
+    image: debian:latest
+    # port forward 8000 on THIS host to port 8000 in the container
+    ports:
+      - "8000:8000"
+    depends_on:
+      - internal-developers
+    # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+    networks:
+      my-rust-app-network: 
+        #dhcp: true
+
 networks:
   my-rust-app-network: 
+    driver: bridge
     ipam:
+      driver: default
       config:
         # assign a subnet mainly for debugging purposes, otherwise the port exposed on THIS host should suffice
-        - subnet: 10.86.10.0/24
-
+        - subnet: 10.86.86.0/24
+          gateway: 10.86.86.1
 

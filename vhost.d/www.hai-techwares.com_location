@@ -1,22 +1,22 @@
 # https://internal-developers.hai-techwares.com:4180 (http and https)
 
 location /oauth {
-    proxy_pass http://oauth2-proxy-host:4180/oauth;
+    proxy_pass http://oauth2-proxy:4180/oauth;
 }
 
 location /manga-furigana/oauth2/callback {
-    proxy_pass http://oauth2-proxy-host:4180/manga-furigana-ouath2-callback;
+    proxy_pass http://oauth2-proxy:4180/manga-furigana-ouath2-callback;
 }
 location /manga-furigana/ {
-    proxy_pass http://oauth2-proxy-host:4180/manga-furigana-default;
+    proxy_pass http://oauth2-proxy:4180/manga-furigana-default;
 }
 
 location /oauth2/callback {
-    proxy_pass http://oauth2-proxy-host:4180/oauth2-callback;
+    proxy_pass http://oauth2-proxy:4180/oauth2-callback;
 }
 
 location / {
-    proxy_pass http://oauth2-proxy-host:4180/internal-developers-default;
+    proxy_pass http://oauth2-proxy:4180/internal-developers-default;
 }
 
 
