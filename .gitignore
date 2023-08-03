@@ -1,3 +1,4 @@
 Cargo.lock
 target/
 tags
+oauth2_proxy.cfg
