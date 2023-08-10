@@ -45,3 +45,4 @@ https://www.googleapis.com/auth/admin.directory.user.readonly
 
 Note: The user is checked against the group members list on initial authentication and every time the token is refreshed ( about once an hour ).
 
+In the end, keep tweaking https://console.cloud.google.com/apis/credentials/oauthclient until you get the Origins and Redirect URIs right.

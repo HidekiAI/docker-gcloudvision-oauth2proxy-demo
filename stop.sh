@@ -9,6 +9,6 @@ fi
 docker-compose down --remove-orphans
 docker-compose config
 docker-compose logs
-docker-compose ls --all
+docker compose ls --all
 docker-compose top
 docker stats --no-stream

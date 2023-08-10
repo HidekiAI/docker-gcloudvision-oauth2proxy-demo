@@ -20,4 +20,4 @@ docker-compose config
 # now run
 docker-compose up -d
 
-echo "Run '$stats.sh' to check stats"
+echo "Run '\$stats.sh' to check stats"

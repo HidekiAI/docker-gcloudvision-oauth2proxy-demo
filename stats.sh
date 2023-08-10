@@ -23,14 +23,21 @@ docker-compose images
 docker-compose top
 docker stats --no-stream
 
-_CONTAINER_ID=$(docker stats --no-stream | grep "auth2" | gawk '{ print $1}' )
+#echo '#$ docker exec --interactive --user root --tty docker-gcloudvision-oauth2proxy_gateway_1 bash'
+#echo '#$ docker exec --interactive --user root --tty docker-gcloudvision-oauth2proxy_www_1 bash'
+#echo '#$ docker exec --interactive --user root --tty docker-gcloudvision-oauth2proxy_internal-developers_1 sh'
+_CONTAINER_ID=$(docker stats --no-stream | grep "auth2" | grep -v "0B \/ 0B" | gawk '{ print $2}' )
 if [ x"${_CONTAINER_ID}" != x"" ] ; then
 	# show how to login to running container, since the target container is running alpine-linux, have to /bin/sh to it rather than /bin/bash
     for _C in $_CONTAINER_ID ; do
-        echo "# docker exec --interactive --tty ${_C} bash"
+        echo "#$ docker exec --interactive --user root --tty ${_C} bash"
     done
 else
 	echo "# WARNING: Could not find a container 'oauth2-proxy' as a running container (via '$ docker stats --no-stream')"
 fi
 
-sudo netstat -paven 2>&1 | grep "http\|https\|4180" 
+#sudo netstat -paven 2>&1 | grep "http\|https\|4180" 
+ps auxf | grep "dockerd\|docker-proxy" | grep -v "grep\|dockerfile\|docker-gen" | grep --color=auto "dockerd\|docker-proxy"
+
+echo "# Use:"
+echo '$ docker-compose logs --follow'
