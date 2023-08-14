@@ -12,9 +12,16 @@ fi
 #docker pull quay.io/oauth2-proxy/oauth2-proxy:latest
 #docker pull jwilder/nginx-proxy:latest
 
+# Generate new cookie secret for every rebuilds
+export OAUTH2_PROXY_COOKIE_SECRET="$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)"
+if [ x"${OAUTH2_PROXY_COOKIE_SECRET}" == x"" ]; then
+    echo "# ERROR: Unable to generate cookie secret"
+    exit -1
+fi
 
 pushd . 2>&1 > /dev/null
 cd GCloudVision/
+# Dockerfile version will build this as 'cargo build --release', no local target will be built
 docker build -t my-rust-app-image .
 docker-compose build 
 popd

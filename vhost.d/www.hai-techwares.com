@@ -23,22 +23,29 @@ location / {
     proxy_read_timeout 30;
 }
 
-location /oauth {
+location /oauth2/ {
     #internal;   # only allow internal redirects
     #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     # route it to internal-developers
-    #proxy_pass http://internal-developers:4180/oauth;
-    proxy_pass http://internal-developers/oauth;
+    proxy_pass http://internal-developers/oauth2/;
 }
+location /oauth2/auth {
+    #internal;   # only allow internal redirects
+    #allow 10.86.86.0/24;    # allow only this subnet
+    #deny all;   # deny everyone else
+
+    # route it to internal-developers
+    proxy_pass http://internal-developers/oauth2/auth;
+}
+# redirect callback
 location /oauth2/callback {
     #internal;   # only allow internal redirects
     #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     # route it to internal-developers
-    #proxy_pass http://internal-developers:4180/oauth2-callback;
     proxy_pass http://internal-developers/oauth2-callback;
 }
 

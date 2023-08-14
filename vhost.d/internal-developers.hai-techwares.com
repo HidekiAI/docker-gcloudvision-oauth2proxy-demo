@@ -41,6 +41,18 @@ location = /oauth2/auth {
     proxy_pass_request_body           off;
 }
 
+# redirect callback
+location /oauth2/callback {
+    # Google cloud oauth2 client should now have packaged up
+    # the access token in the response body, in which it is then
+    # stored in the X-Auth-Request-Access-Token header by 
+    # the oauth2-proxy, which is then passed to the backend
+    # application by nginx using the proxy_set_header directive.
+    # the backend application can then use the access Token 
+    # to make requests to the Google Cloud Vision API 
+    proxy_pass       http://my-rust-app:6666/;
+}
+
 location / {
     #internal;   # only allow internal redirects
     #allow 10.86.86.0/24;    # allow only this subnet

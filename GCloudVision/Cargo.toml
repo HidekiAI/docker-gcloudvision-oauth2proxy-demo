@@ -4,3 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# Have to use --features full or else won't be able to use hyper::server
+hyper = { version = "0.14.27", features = ["full"] }
+base64 = "0.21.2"
+# Note that without the `cargo add tokio --features full`, you will most likely fail on tokio::runtime::Runtime and Builder::new
+tokio = { version = "1.30.0", features = ["full", "macros"] }
+serde_json = "^1.0"
+hyper-tls = "0.5.0"
+serde = {version="^1.0", features = ["derive"]}
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = {version = "0.11", features = ["json"] }
+rustls = "0.21.6"
+rustls-pemfile = "1.0.3"
+thiserror = "1"
+async-trait = "0.1"
+http = "0.2"
+backoff = {version="0.4", features = ["tokio"]}
+#google-cloud-vision-rest = "0.1.2"
+google-vision1 = "*"
+hyper-rustls = "0.24.1"
+yup-oauth2 = "8.3.0"

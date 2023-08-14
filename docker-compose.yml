@@ -59,7 +59,14 @@ services:
       - VIRTUAL_HOST=internal-developers.hai-techwares.com
       - VIRTUAL_PROTO=https
       - VIRTUAL_PORT=4180
+      # NOTE: we can technically populate all the OAUTH2_PROXY_xxx as env-vars here instead of in oauth2_proxy.cfg to reduce another file dependencies...
+      # the beauty of having it here instead of in the oauth2_proxy.cfg file is that you can set things up
+      # as env-var, for example: 'OAUTH2_PROXY_COOKIE_SECRET: $(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)'
+      # which, if you're in BASH already, it'll setup different cookie every rebuild
       - OAUTH2_PROXY_CONFIG=/etc/oauth2_proxy.cfg
+      # In your BASH script that will call "docker compose build", do this:
+      #$ export OAUTH2_PROXY_COOKIE_SECRET="$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)"
+      - OAUTH2_PROXY_COOKIE_SECRET="${OAUTH2_PROXY_COOKIE_SECRET}"
     volumes:
       - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
       - "./www/internal-developers:/usr/share/nginx/html:ro"
@@ -95,12 +102,23 @@ services:
         # sadly, if I do not specify the IP address, things just don't work...
         ipv4_address: 10.86.86.100
 
+  # though it's an overkill, I like the concept of persisting/caching
+  # auth token in redis
+  redis:
+    image: redis:latest
+    volumes:
+      - type: cache
+        source: cache
+        target: /data
+
   my-rust-app:
     hostname: my-rust-app
     image: debian:latest
     # port forward 8000 on THIS host to port 8000 in the container
     depends_on:
       - gateway
+    ports:
+      - 6666:666/tcp
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     networks:
       my-rust-app-network: 
