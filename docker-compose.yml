@@ -13,7 +13,7 @@ networks:
 
 services:
   # gateway is the nginx-proxy that routes to the internal-developers and www services
-  # all requests to internal-developers.hai-techwares.com and www.hai-techwares.com will be routed to the internal-developers and www services respectively
+  # all requests to internal-developers.yourdomain.tld and www.yourdomain.tld will be routed to the internal-developers and www services respectively
   # and the internal-developers and www services will be able to access each other via their service names
   # it is also the only service that is exposed to the outside world (hence it's the proxy)
   gateway:
@@ -36,19 +36,20 @@ services:
       my-rust-app-network:
         ipv4_address: 10.86.86.86
         aliases:
-          - internal-developers.hai-techwares.com
-          - www.hai-techwares.com
+          - internal-developers.${FQ_DOMAIN_NAME}
+          - www.${FQ_DOMAIN_NAME}
     links:
       - internal-developers
       - www
 
   internal-developers:
-    # see vhost.d/internal-developers.hai-techwares.com for the proxy configuration (in particular, "proxy_pass" location which port-forwards to port 4180)
+    # see vhost.d/internal-developers.yourdomain.tld for the proxy configuration (in particular, "proxy_pass" location which port-forwards to port 4180)
     hostname: internal-developers
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     #no need to add any args such as "--http-address=0.0.0.0:4180" for they should just all be set in oauth2_proxy.cfg file
     command: 
       - "--config=/etc/oauth2_proxy.cfg"
+      - "--http-address=0.0.0.0:4180"
     # port-forward 4180 on THIS machine to 4180 in the container
     ports:
       - 4180:4180/tcp
@@ -56,7 +57,7 @@ services:
       - 4443:443/tcp
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
-      - VIRTUAL_HOST=internal-developers.hai-techwares.com
+      - VIRTUAL_HOST=internal-developers.${FQ_DOMAIN_NAME}
       - VIRTUAL_PROTO=https
       - VIRTUAL_PORT=4180
       # NOTE: we can technically populate all the OAUTH2_PROXY_xxx as env-vars here instead of in oauth2_proxy.cfg to reduce another file dependencies...
@@ -64,9 +65,10 @@ services:
       # as env-var, for example: 'OAUTH2_PROXY_COOKIE_SECRET: $(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)'
       # which, if you're in BASH already, it'll setup different cookie every rebuild
       - OAUTH2_PROXY_CONFIG=/etc/oauth2_proxy.cfg
-      # In your BASH script that will call "docker compose build", do this:
+      # In your BASH script that will call "docker-compose build", do this:
       #$ export OAUTH2_PROXY_COOKIE_SECRET="$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)"
-      - OAUTH2_PROXY_COOKIE_SECRET="${OAUTH2_PROXY_COOKIE_SECRET}"
+      # IMPORTANT: DO _NOT_ place quotation marks around the value of the env-var, otherwise it'll be treated as a string instead of a command causing base64 to be +2 bytes more than it should be
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET}
     volumes:
       - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
       - "./www/internal-developers:/usr/share/nginx/html:ro"
@@ -93,7 +95,7 @@ services:
       - 2443:443/tcp
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
-      - VIRTUAL_HOST=www.hai-techwares.com
+      - VIRTUAL_HOST=www.${FQ_DOMAIN_NAME}
       - VIRTUAL_PROTO=https
       - VIRTUAL_PORT=80,443
     #restart: unless-stopped
@@ -106,14 +108,16 @@ services:
   # auth token in redis
   redis:
     image: redis:latest
-    volumes:
-      - type: cache
-        source: cache
-        target: /data
+    command: redis-server 
+    ports:
+      - "6379:6379"
+    # if and when we decide to persist the redis data, we can use this volume, but for now, we just need to cache it
+    #volumes:
+    #  - redis-data:/data
 
   my-rust-app:
     hostname: my-rust-app
-    image: debian:latest
+    image: my-rust-app-image:latest
     # port forward 8000 on THIS host to port 8000 in the container
     depends_on:
       - gateway
@@ -124,3 +128,6 @@ services:
       my-rust-app-network: 
         # sadly, if I do not specify the IP address, things just don't work...
         ipv4_address: 10.86.86.200
+
+  #volumes:
+  #  redis-data:

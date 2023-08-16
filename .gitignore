@@ -4,3 +4,8 @@ tags
 oauth2_proxy.cfg
 
 .fake
+build_image.env
+# my own domain files located in vhost.d, you will need to add your own from *.yourdomain.tld files
+*.hai-techwares.com
+.vscode/
+

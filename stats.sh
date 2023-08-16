@@ -1,5 +1,8 @@
 #!/bin/bash
 
+source build_image.env
+# for debug puproses, echo the cookie secret decoded
+echo "# OAUTH2_PROXY_COOKIE_SECRET: $(echo ${OAUTH2_PROXY_COOKIE_SECRET} | tr -- '-_' '+/' | base64 -d | wc -c) bytes"   # if you care about something more than byte-count of 32, you can replace the 'wc -c' with 'hexdump -C'
 docker image ls
 
 # Note: 'docker scount' only exists on Windows?

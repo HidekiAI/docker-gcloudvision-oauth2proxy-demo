@@ -24,3 +24,4 @@ backoff = {version="0.4", features = ["tokio"]}
 google-vision1 = "*"
 hyper-rustls = "0.24.1"
 yup-oauth2 = "8.3.0"
+form_urlencoded = "1.2.0"

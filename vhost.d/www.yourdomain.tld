@@ -1,9 +1,9 @@
-# VIRTUAL_HOST=www.hai-techwares.com
+# VIRTUAL_HOST=www.yourdomain.tld
 # hostname: www
 
 #listen 80;
 listen 443 default ssl;
-#server_name www.hai-techwares.com;
+#server_name www.yourdomain.tld;
 server_name ...;
 return 301 https://$host$request_uri;
 

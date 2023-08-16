@@ -1,4 +1,4 @@
-#VIRTUAL_HOST=internal-developers.hai-techwares.com
+#VIRTUAL_HOST=internal-developers.yourdomain.tld
 # hostname: internal-developers
 
 # Most of the configuration is from https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/overview/ "Nginx auth_request" section
@@ -7,7 +7,7 @@
 # assumes that the hostname is "oauth2-proxy"
 #listen 80;
 listen 443 ssl;
-#server_name internal-developers.hai-techwares.com;
+#server_name internal-developers.yourdomain.tld;
 server_name ...;
 
 include ./ssl/internal-developers/ssl.conf;
@@ -42,6 +42,8 @@ location = /oauth2/auth {
 }
 
 # redirect callback
+# Upon authentication, the oauth2-proxy will redirect the user to the /oauth2/callback path as:
+# 'http://internal-developers.yourdomain.tld/oauth2/callback?state=AcJGXp2rhz5LdY26DCsWpBzJNpQdY271eQntc-43oLE%3A%2F&code=4%2F0Adeu5BVvr69cqjjsP7YfaCxlJ_5PWaIrubw1CJtaWBtSZEDEcCftC4q0Av43HwBWKmPuNQ&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=0&prompt=consent'
 location /oauth2/callback {
     # Google cloud oauth2 client should now have packaged up
     # the access token in the response body, in which it is then
@@ -99,7 +101,7 @@ location / {
     # or "root /path/to/site;" or "fastcgi_pass ..." etc
 }
 
-## http://internal-developers.hai-techwares.com/ and https://internal-developers.hai-techwares.com/ should just port forward from port 80/443 to 4180
+## http://internal-developers.yourdomain.tld/ and https://internal-developers.yourdomain.tld/ should just port forward from port 80/443 to 4180
 ## note that "proxy_pass" with "http://" will forward both http and https
 #location /oauth {
 #    proxy_pass http://oauth2-proxy:4180/oauth;
