@@ -1,3 +1,5 @@
+# docker-gcloudvision-oauth2proxy-demo
+Demo on how to setup gcloud vision OCR via oauth2-proxy all wrapped into docker images
 NOTE: Whole text is copied-and-pasted from https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#google-auth-provider
 (https://github.com/oauth2-proxy/oauth2-proxy/blob/master/docs/docs/configuration/auth.md)
 
