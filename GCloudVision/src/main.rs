@@ -83,18 +83,18 @@ use tokio::runtime::{Builder, Runtime};
 //    }
 //}
 //
-//fn get_port_from_command_line_argument(args: Vec<String>) -> u16 {
-//    // get port from command line argument
-//    for arg in args {
-//        if arg.starts_with("--port=") {
-//            let port_str = arg.split("=").nth(1).unwrap();
-//            let port = port_str.parse::<u16>().unwrap();
-//            return port;
-//        }
-//    }
-//    return 666; // default in case --port not found
-//}
-//
+fn get_port_from_command_line_argument(args: Vec<String>) -> u16 {
+    // get port from command line argument
+    for arg in args {
+        if arg.starts_with("--port=") {
+            let port_str = arg.split("=").nth(1).unwrap();
+            let port = port_str.parse::<u16>().unwrap();
+            return port;
+        }
+    }
+    return 666; // default in case --port not found
+}
+
 //async fn fn_handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
 //    println!("Received request: {:?}", req);
 //
@@ -184,55 +184,42 @@ fn extract_auth_token(headers: &hyper::HeaderMap) -> String {
 //    return (response);
 //}
 //
-//fn main() {
-//    let args: Vec<String> = env::args().collect();
-//    // get port from command line argument
-//    let port = get_port_from_command_line_argument(args);
-//    let listen_address_ipv4 = SocketAddr::from(([127, 0, 0, 1], port));
-//
-//    // Create a hyper service that listens for HTTP/1.1 requests
-//    let service = service_fn(|req: Request<Body>| async move {
-//        println!("Received request: {:?}", req);
-//        if req.version() == Version::HTTP_11 {
-//            // Extract auth token from headers (replace with actual extraction logic)
-//            let auth_token = extract_auth_token(req.headers());
-//
-//            // Encode an image
-//            let image_data = vec![0u8, 1u8, 2u8, 3u8]; // TODO: Not sure yet whether I'd want to deal with image here...
-//            let encoded_image = general_purpose::STANDARD.encode(&image_data);
-//
-//            // Perform OCR or other processing with the auth token and encoded image
-//
-//            // Return a response
-//            let response = format!(
-//                "Auth Token: {}\nEncoded Image: {}",
-//                auth_token, encoded_image
-//            );
-//            //Ok(Response::new(Body::from("Hello World")))
-//            Ok(Response::new(Body::from(response)))
-//        } else {
-//            // Note: it's usually better to return a Response with an appropriate StatusCode instead of an Err.
-//            Err("not HTTP/1.1, abort connection")
-//        }
-//    });
-//    // Create a hyper server
-//    let server = Server::bind(&listen_address_ipv4).serve(service);
-//
-//    println!("Listening on http://{}", listen_address_ipv4);
-//
-//    // Run the server
-//    //let rt = Builder::new(  ).build().unwrap();
-//    let rt = tokio::runtime::Builder::new_multi_thread()
-//        .worker_threads(4)
-//        .thread_name("my-rust-app-thread")
-//        .build()
-//        .unwrap();
-//    rt.block_on(server).unwrap();
-//}
-
 fn main() {
-    // listen to port 666 for HTTP/1.1 requests
-    let listen_address_ipv4 = SocketAddr::from(([127, 0, 0, 1], 666));
+    let args: Vec<String> = env::args().collect();
+    // get port from command line argument
+    let port = get_port_from_command_line_argument(args);
+    // listen to port 666 for HTTP/1.1 requests (requires sudo privileges to bind to listener port)
+    let listen_address_ipv4 = SocketAddr::from(([127, 0, 0, 1], port)); // NOTE: assumes IPv4 address for now
+
+    //    // Create a hyper service that listens for HTTP/1.1 requests
+    //    let service = service_fn(|req: Request<Body>| async move {
+    //        println!("Received request: {:?}", req);
+    //        if req.version() == Version::HTTP_11 {
+    //            // Extract auth token from headers (replace with actual extraction logic)
+    //            let auth_token = extract_auth_token(req.headers());
+    //
+    //            // Encode an image
+    //            let image_data = vec![0u8, 1u8, 2u8, 3u8]; // TODO: Not sure yet whether I'd want to deal with image here...
+    //            let encoded_image = general_purpose::STANDARD.encode(&image_data);
+    //
+    //            // Perform OCR or other processing with the auth token and encoded image
+    //
+    //            // Return a response
+    //            let response = format!(
+    //                "Auth Token: {}\nEncoded Image: {}",
+    //                auth_token, encoded_image
+    //            );
+    //            //Ok(Response::new(Body::from("ERROR: my_rust_app")))
+    //            Ok(Response::new(Body::from(response)))
+    //        } else {
+    //            // Note: it's usually better to return a Response with an appropriate StatusCode instead of an Err.
+    //            Err("not HTTP/1.1, abort connection")
+    //        }
+    //    });
+    //    // Create a hyper server
+    //    let server = Server::bind(&listen_address_ipv4).serve(service);
+    //
+    println!("Listening on http://{}", listen_address_ipv4);
 
     //let service = service_fn(|req: Request<Body>| async move {
     //    println!("Received request: {:?}", req);
@@ -278,7 +265,7 @@ fn main() {
                 "Auth Token: {}\nEncoded Image: {}",
                 auth_token, encoded_image
             );
-            //Ok(Response::new(Body::from("Hello World")))
+            //Ok(Response::new(Body::from("ERROR: my_rust_app")))
             Ok(Response::new(Body::from(response)))
         } else {
             // Note: it's usually better to return a Response with an appropriate StatusCode instead of an Err.
@@ -290,6 +277,7 @@ fn main() {
     async fn run() {
         use hyper::service::{make_service_fn, service_fn};
         use hyper::{Body, Error, Response, Server};
+
         let make_service = make_service_fn(|_unused| async {
             Ok::<_, Error>(service_fn(|req_body: Request<Body>| async {
                 let req: Request<Body> = Request::builder()
@@ -314,19 +302,19 @@ fn main() {
                             .status(StatusCode::OK)
                             .body(Body::from("Received query parameters"))
                             .unwrap();
-                        //Ok(response)
-                        Ok::<_, Error>(Response::new(Body::from("Hello World")))
+                        Ok(response)
                     }
                     false => {
                         // default routing path
-                        Ok::<_, Error>(Response::new(Body::from("Hello World")))
+                        Err("ERROR: my_rust_app")
+                        //Ok::<_, Error>(Response::new(Body::from("ERROR: my_rust_app")))
                     }
                 }
             }))
         });
-        // Make a server from the previous examples...
-        let listen_address_ipv4 = SocketAddr::from(([127, 0, 0, 1], 666)).into();
-        let server = Server::bind(&listen_address_ipv4).serve(make_service);
+        // listen to port 666 for HTTP/1.1 requests (requires sudo privileges to bind to listener port)
+        let listen_address_ipv4_forced_port_666 = SocketAddr::from(([127, 0, 0, 1], 666)).into();
+        let server = Server::bind(&listen_address_ipv4_forced_port_666).serve(make_service);
 
         // Prepare some signal for when the server should start shutting down...
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
@@ -348,6 +336,7 @@ fn main() {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(4)
         .thread_name("my-rust-app-thread")
+        .enable_io() // for now, just enable all I/O
         .build()
         .unwrap();
     rt.block_on(run());
