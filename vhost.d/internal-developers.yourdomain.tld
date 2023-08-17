@@ -20,39 +20,13 @@ location /oauth2/ {
     #deny all;   # deny everyone else
 
     proxy_pass       http://$host:4180;
+    #proxy_pass       http://internal-developers:4180;
     proxy_set_header Host                    $host;
     proxy_set_header X-Real-IP               $remote_addr;
     proxy_set_header X-Scheme                $scheme;
     proxy_set_header X-Auth-Request-Redirect $request_uri;
     # or, if you are handling multiple domains:
     # proxy_set_header X-Auth-Request-Redirect $scheme://$host$request_uri;
-}
-location = /oauth2/auth {
-    #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
-    #deny all;   # deny everyone else
-
-    proxy_pass       http://$host:4180;
-    proxy_set_header Host             $host;
-    proxy_set_header X-Real-IP        $remote_addr;
-    proxy_set_header X-Scheme         $scheme;
-    # nginx auth_request includes headers but not body
-    proxy_set_header Content-Length   "";
-    proxy_pass_request_body           off;
-}
-
-# redirect callback
-# Upon authentication, the oauth2-proxy will redirect the user to the /oauth2/callback path as:
-# 'http://internal-developers.yourdomain.tld/oauth2/callback?state=AcJGXp2rhz5LdY26DCsWpBzJNpQdY271eQntc-43oLE%3A%2F&code=4%2F0Adeu5BVvr69cqjjsP7YfaCxlJ_5PWaIrubw1CJtaWBtSZEDEcCftC4q0Av43HwBWKmPuNQ&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=0&prompt=consent'
-location /oauth2/callback {
-    # Google cloud oauth2 client should now have packaged up
-    # the access token in the response body, in which it is then
-    # stored in the X-Auth-Request-Access-Token header by 
-    # the oauth2-proxy, which is then passed to the backend
-    # application by nginx using the proxy_set_header directive.
-    # the backend application can then use the access Token 
-    # to make requests to the Google Cloud Vision API 
-    proxy_pass       http://my-rust-app:6666/;
 }
 
 location / {
@@ -97,27 +71,84 @@ location / {
         add_header Set-Cookie $auth_cookie_name_1;
     }
 
-    proxy_pass http://backend/;
+    #proxy_pass       http://internal-developers:4180;
+    proxy_pass  http://$host:4180/;
     # or "root /path/to/site;" or "fastcgi_pass ..." etc
 }
 
-## http://internal-developers.yourdomain.tld/ and https://internal-developers.yourdomain.tld/ should just port forward from port 80/443 to 4180
-## note that "proxy_pass" with "http://" will forward both http and https
-#location /oauth {
-#    proxy_pass http://oauth2-proxy:4180/oauth;
-#}
+# Endpoints defined in 'https://oauth2-proxy.github.io/oauth2-proxy/docs/features/endpoints':
+# OAuth2 Proxy responds directly to the following endpoints. All other endpoints will be proxied upstream when authenticated. 
+# The /oauth2 prefix can be changed with the --proxy-prefix config variable.
+# * /robots.txt - returns a 200 OK response that disallows all User-agents from all paths; see robotstxt.org for more info
+# * /ping - returns a 200 OK response, which is intended for use with health checks
+# * /metrics - Metrics endpoint for Prometheus to scrape, serve on the address specified by --metrics-address, disabled by default
+# * /oauth2/sign_in - the login page, which also doubles as a sign out page (it clears cookies)
+# * /oauth2/sign_out - this URL is used to clear the session cookie
+# * /oauth2/start - a URL that will redirect to start the OAuth cycle
+# * /oauth2/callback - the URL used at the end of the OAuth cycle. The oauth app will be configured with this as the callback url.
+# * /oauth2/userinfo - the URL is used to return user's email from the session in JSON format.
+# * /oauth2/auth - only returns a 202 Accepted response or a 401 Unauthorized response; for use with the Nginx auth_request directive
+# How to verify/test:
+# go to http://internal-developers.yourdomain.tld:4180/ping to verify we're live
+# Next, go to http://internal-developers.yourdomain.tld:4180/oauth2/sign_in to login using your gmail account (use sign_in instead of start to clear last cookies if any)
+# Now, go to http://internal-developers.yourdomain.tld:4180/oauth2/userinfo to verify you were authorized
+# Finally, go to http://internal-developers.yourdomain.tld:4180/oauth2/sign_out to logout
+# And go to http://internal-developers.yourdomain.tld:4180/oauth2/userinfo to verify you were logged out (you should get a 401 Unauthorized response)
 
-#location /manga-furigana/oauth2/callback {
-#    proxy_pass http://oauth2-proxy:4180/manga-furigana-ouath2-callback;
-#}
-#location /manga-furigana/ {
-#    proxy_pass http://oauth2-proxy:4180/manga-furigana-default;
-#}
+location /robots.txt {
+    proxy_pass http://internal-developers:4180/robots.txt;
+}
+location /ping {
+    proxy_pass http://internal-developers:4180/ping;
+}
+location /metrics {
+    proxy_pass http://internal-developers:4180/metrics;
+}
+location /oauth2/sign_in {
+    proxy_pass http://internal-developers:4180/oauth2/sign_in;
+}
+location /oauth2/sign_out {
+    proxy_pass http://internal-developers:4180/oauth2/sign_out;
+}
+location /oauth2/start {
+    proxy_pass http://internal-developers:4180/oauth2/start;
+}
+# redirect callback
+# Upon authentication, the oauth2-proxy will redirect the user to the /oauth2/callback path as:
+# 'http://myhost.localdomain.tld/oauth2/callback?state=...&code=...&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=0&prompt=consent'
+# The above is a GET request once the user selects her gmail account to login with and grants access to the application and redirects backend
+location /oauth2/callback {
+    # Google cloud oauth2 client should now have packaged up
+    # the access token in the response body, in which it is then
+    # stored in the X-Auth-Request-Access-Token header by 
+    # the oauth2-proxy, which is then passed to the backend
+    # application by nginx using the proxy_set_header directive.
+    # the backend application can then use the access Token 
+    # to make requests to the Google Cloud Vision API 
+    proxy_pass       http://$host:4180/oauth2/callback;
+    #proxy_pass       http://internal-developers:4180/oauth2/callback;
+    #proxy_pass       http://internal-developers:4180/callback;
+    #proxy_pass       http://my-rust-app:6666/;
+    proxy_set_header Host                    $host;
+    proxy_set_header X-Real-IP               $remote_addr;
+    proxy_set_header X-Scheme                $scheme;
+    proxy_set_header X-Auth-Request-Redirect $request_uri;
+}
+location /oauth2/userinfo {
+    proxy_pass http://internal-developers:4180/oauth2/userinfo;
+}
 
-#location /oauth2/callback {
-#    proxy_pass http://oauth2-proxy:4180/oauth2-callback;
-#}
+location = /oauth2/auth {
+    #internal;   # only allow internal redirects
+    #allow 10.86.86.0/24;    # allow only this subnet
+    #deny all;   # deny everyone else
 
-#location / {
-#    proxy_pass http://oauth2-proxy:4180/internal-developers-default;
-#}
+    proxy_pass       http://$host:4180/oauth2/auth;
+    #proxy_pass       http://internal-developers:4180/oauth2/auth;
+    proxy_set_header Host             $host;
+    proxy_set_header X-Real-IP        $remote_addr;
+    proxy_set_header X-Scheme         $scheme;
+    # nginx auth_request includes headers but not body
+    proxy_set_header Content-Length   "";
+    proxy_pass_request_body           off;
+}

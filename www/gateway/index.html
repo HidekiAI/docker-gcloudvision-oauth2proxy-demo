@@ -1,8 +1,31 @@
 <!DOCTYPE html>
 <html>
-  <head>
-  </head>
-  <body>
-    SHOULD NOT BE HERE
-  </body>
+
+<head>
+  <h1>
+    <center>
+      Gateway: SHOULD NOT BE HERE
+    </center>
+  </h1>
+</head>
+
+<body>
+  This is the (nginx-proxy) gateway. You should never land here...
+  <br>
+  <br>
+
+  <li>If you've landed on this page, you've most likely set your
+    redirect URL incorrectly.</li>
+  <li> This is the "gateway" (via nginx-proxy) page, which should never be seen by the user.
+    It's sole purpose is to redirect the user to the correct page
+    based on either the origin URI (i.e. myhost.mydomain.tld) with or without port and routing paths used. </li>
+  <li>For this excercise, we have two domains: <b>www.mydomain.tld</b> and <b>internal-developers.mydomain.tld</b>
+    (with or without ports). The filenames located in <u>vhosts.d</u> directory indicates the origin (i.e.
+    "internal-developers.mydomain.tld") and its contents indicates its location routing paths. </li>
+  <li>If you've landed on this page, you first want to determine the URI used (i.e. any URI origin that is not
+    <b>www</b> or <b>internal-developers</b>
+    or possibly misspelled origin such as "www.my-domain-with-dash.tld") and just
+    find that string in your source code</li>
+</body>
+
 </html>

@@ -121,6 +121,8 @@ services:
     # port forward 8000 on THIS host to port 8000 in the container
     depends_on:
       - gateway
+      - www
+      - internal-developers
     ports:
       - 6666:666/tcp
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
