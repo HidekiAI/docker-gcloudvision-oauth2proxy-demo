@@ -125,10 +125,10 @@ location /oauth2/callback {
     # application by nginx using the proxy_set_header directive.
     # the backend application can then use the access Token 
     # to make requests to the Google Cloud Vision API 
-    proxy_pass       http://$host:4180/oauth2/callback;
+    #proxy_pass       http://$host:4180/oauth2/callback;
     #proxy_pass       http://internal-developers:4180/oauth2/callback;
     #proxy_pass       http://internal-developers:4180/callback;
-    #proxy_pass       http://my-rust-app:6666/;
+    proxy_pass       http://my-rust-app:6666/oauth2/callback;
     proxy_set_header Host                    $host;
     proxy_set_header X-Real-IP               $remote_addr;
     proxy_set_header X-Scheme                $scheme;

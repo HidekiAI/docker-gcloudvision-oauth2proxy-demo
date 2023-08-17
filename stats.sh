@@ -42,5 +42,8 @@ fi
 #sudo netstat -paven 2>&1 | grep "http\|https\|4180" 
 ps auxf | grep "dockerd\|docker-proxy" | grep -v "grep\|dockerfile\|docker-gen" | grep --color=auto "dockerd\|docker-proxy"
 
+# show which ports are exposed
+docker ps
+
 echo "# Use:"
 echo '$ docker-compose logs --follow'

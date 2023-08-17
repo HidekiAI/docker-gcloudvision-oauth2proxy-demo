@@ -23,5 +23,7 @@ docker-compose config
 
 # now run
 docker-compose up -d
+# show which ports are exposed
+docker ps
 
 echo "Run '\$stats.sh' to check stats"

@@ -4,12 +4,12 @@ networks:
   # the host (edge-router) that is hosting the docker containers should have a static IP address of .1
   my-rust-app-network: 
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        # assign a subnet mainly for debugging purposes, otherwise the port exposed on THIS host should suffice
-        - subnet: 10.86.86.0/24
-          gateway: 10.86.86.1
+    #ipam:
+    #  driver: default
+    #  config:
+    #      # assign a subnet mainly for debugging purposes, otherwise the port exposed on THIS host should suffice
+    #      - subnet: 10.86.86.0/24
+    #        gateway: 10.86.86.1
 
 services:
   # gateway is the nginx-proxy that routes to the internal-developers and www services
@@ -23,6 +23,7 @@ services:
     depends_on:
       - internal-developers
       - www
+    # on the gateway proxy, ports opened are straight-pass-through 1:1 mapped
     ports:
       - "80:80"
       - "443:443"
@@ -34,7 +35,7 @@ services:
     networks:
       # gateways has to have a static IP so that edge-routers can route to here...
       my-rust-app-network:
-        ipv4_address: 10.86.86.86
+        #ipv4_address: 10.86.86.86
         aliases:
           - internal-developers.${FQ_DOMAIN_NAME}
           - www.${FQ_DOMAIN_NAME}
@@ -52,9 +53,9 @@ services:
       - "--http-address=0.0.0.0:4180"
     # port-forward 4180 on THIS machine to 4180 in the container
     ports:
-      - 4180:4180/tcp
-      - 4080:80/tcp
-      - 4443:443/tcp
+      - "4180:4180"
+      - 80
+      - 443
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
       - VIRTUAL_HOST=internal-developers.${FQ_DOMAIN_NAME}
@@ -76,9 +77,10 @@ services:
     #restart: unless-stopped
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     networks:
-      my-rust-app-network: 
+      my-rust-app-network: {
         # sadly, if I do not specify the IP address, things just don't work...
-        ipv4_address: 10.86.86.150
+        #ipv4_address: 10.86.86.150
+      }
 
   # www is a static website that is hosted on nginx for the purpose of my-rust-app to be able to access it
   # it is separate from my-rust-app because the nginx:latest image could be using alpine instead of debian
@@ -91,8 +93,8 @@ services:
       - "./www/www:/usr/share/nginx/html:ro"
       - "./ssl/www/certs:/etc/nginx/certs/:ro"
     ports:
-      - 2080:80/tcp
-      - 2443:443/tcp
+      - 80
+      - 443
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
       - VIRTUAL_HOST=www.${FQ_DOMAIN_NAME}
@@ -100,9 +102,10 @@ services:
       - VIRTUAL_PORT=80,443
     #restart: unless-stopped
     networks:
-      my-rust-app-network: 
+      my-rust-app-network: {
         # sadly, if I do not specify the IP address, things just don't work...
-        ipv4_address: 10.86.86.100
+        #ipv4_address: 10.86.86.100
+      }
 
   # though it's an overkill, I like the concept of persisting/caching
   # auth token in redis
@@ -110,10 +113,14 @@ services:
     image: redis:latest
     command: redis-server 
     ports:
-      - "6379:6379"
+      - 6379
     # if and when we decide to persist the redis data, we can use this volume, but for now, we just need to cache it
     #volumes:
     #  - redis-data:/data
+    environment:
+      - VIRTUAL_HOST=redis.${FQ_DOMAIN_NAME}
+      - VIRTUAL_PROTO=https
+      - VIRTUAL_PORT=6379
 
   my-rust-app:
     hostname: my-rust-app
@@ -124,12 +131,17 @@ services:
       - www
       - internal-developers
     ports:
-      - 6666:666/tcp
+      - "666:666"
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
+    environment:
+      - VIRTUAL_HOST=my-rust-app.${FQ_DOMAIN_NAME}
+      - VIRTUAL_PROTO=https
+      - VIRTUAL_PORT=666
     networks:
-      my-rust-app-network: 
+      my-rust-app-network: {
         # sadly, if I do not specify the IP address, things just don't work...
-        ipv4_address: 10.86.86.200
+        #ipv4_address: 10.86.86.200
+      }
 
   #volumes:
   #  redis-data:
