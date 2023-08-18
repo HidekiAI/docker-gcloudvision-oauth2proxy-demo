@@ -3,11 +3,12 @@ use base64::{
     engine::{self, general_purpose},
     Engine as _,
 };
-use google_vision1::{
-    api::{AnnotateImageRequest, Feature, ImageSource},
-    Error, Result,
-};
-use google_vision1::{chrono, hyper, hyper_rustls, oauth2, FieldMask, Vision};
+use chrono::format;
+use google_cloud::{datastore, pubsub, storage, vision};
+//use google_vision1::{
+//    api::{AnnotateImageRequest, Feature, ImageSource},
+//    chrono, hyper, hyper_rustls, oauth2, Error, FieldMask, Result, Vision,
+//};
 use http::{Request, Response, StatusCode};
 use hyper::{
     rt,
@@ -18,71 +19,14 @@ use hyper::{
     Version,
 };
 use hyper_tls::HttpsConnector;
-use oauth2::service_account_impersonator::ServiceAccountImpersonationFlow;
 use serde::{Deserialize, Serialize};
-use std::env;
-use std::net::SocketAddr;
-use std::{default::Default, future::Future};
+use serde_json;
+use std::{default::Default, env, future::Future, net::SocketAddr};
 use tokio::runtime::{Builder, Runtime};
+use yup_oauth2;
 
-//fn auth_google_vision1() -> Result<Vision<hyper::client::HttpConnector, oauth2::InstalledFlow>> {
-//    // Get an ApplicationSecret instance by some means. It contains the `client_id` and
-//    // `client_secret`, among other things.
-//    let secret: oauth2::ApplicationSecret = Default::default();
-//    // Instantiate the authenticator. It will choose a suitable authentication flow for you,
-//    // unless you replace  `None` with the desired Flow.
-//    // Provide your own `AuthenticatorDelegate` to adjust the way it operates and get feedback about
-//    // what's going on. You probably want to bring in your own `TokenStorage` to persist tokens and
-//    // retrieve them from storage.
-//    let auth = oauth2::InstalledFlowAuthenticator::builder(
-//        secret,
-//        oauth2::InstalledFlowReturnMethod::HTTPRedirect,
-//    )
-//    .build()
-//    .await
-//    .unwrap();
-//    let mut hub = Vision::new(
-//        hyper::Client::builder().build(
-//            hyper_rustls::HttpsConnectorBuilder::new()
-//                .with_native_roots()
-//                .https_or_http()
-//                .enable_http1()
-//                .enable_http2()
-//                .build(),
-//        ),
-//        auth,
-//    );
-//    // You can configure optional parameters by calling the respective setters at will, and
-//    // execute the final call using `doit()`.
-//    // Values shown here are possibly random and not representative !
-//    let result = hub
-//        .operations()
-//        .list("name")
-//        .page_token("magna")
-//        .page_size(-11)
-//        .filter("ipsum")
-//        .doit()
-//        .await;
-//
-//    match result {
-//        Err(e) => match e {
-//            // The Error enum provides details about what exactly happened.
-//            // You can also just use its `Debug`, `Display` or `Error` traits
-//            Error::HttpError(_)
-//            | Error::Io(_)
-//            | Error::MissingAPIKey
-//            | Error::MissingToken(_)
-//            | Error::Cancelled
-//            | Error::UploadSizeLimitExceeded(_, _)
-//            | Error::Failure(_)
-//            | Error::BadRequest(_)
-//            | Error::FieldClash(_)
-//            | Error::JsonDecodeError(_, _) => println!("{}", e),
-//        },
-//        Ok(res) => println!("Success: {:?}", res),
-//    }
-//}
-//
+const PROJECT_ID: &str = "my_rust_app";
+
 fn get_port_from_command_line_argument(args: Vec<String>) -> u16 {
     // get port from command line argument
     for arg in args {
@@ -95,159 +39,160 @@ fn get_port_from_command_line_argument(args: Vec<String>) -> u16 {
     return 666; // default in case --port not found
 }
 
-//async fn fn_handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-//    println!("Received request: {:?}", req);
-//
-//    // Extract auth token from headers (replace with actual extraction logic)
-//    let auth_token = extract_auth_token(req.headers());
-//
-//    // Encode an example image (replace with your image encoding logic)
-//    let image_data = vec![0u8, 1u8, 2u8, 3u8]; // Replace with your image data
-//    let encoded_image = general_purpose::STANDARD.encode(&image_data);
-//
-//    // Perform OCR or other processing with the auth token and encoded image
-//
-//    // Return a response
-//    let response = format!(
-//        "Auth Token: {}\nEncoded Image: {}",
-//        auth_token, encoded_image
-//    );
-//    Ok(Response::new(Body::from(response)))
-//}
+async fn fn_handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+    println!("Received request: {:?}", req);
+
+    // Extract auth token from headers (replace with actual extraction logic)
+    let auth_token = extract_auth_token(req.headers());
+
+    // Encode an example image (replace with your image encoding logic)
+    let image_data = vec![0u8, 1u8, 2u8, 3u8]; // Replace with your image data
+    let encoded_image = general_purpose::STANDARD.encode(&image_data);
+
+    // Perform OCR or other processing with the auth token and encoded image
+
+    // Return a response
+    let response = format!(
+        "[{}] Auth Token: {}\nEncoded Image: {}",
+        PROJECT_ID, auth_token, encoded_image
+    );
+    Ok(Response::new(Body::from(response)))
+}
 fn extract_auth_token(headers: &hyper::HeaderMap) -> String {
     // Replace with actual logic to extract auth token from headers
     // For example: headers.get("Authorization").unwrap().to_str().unwrap().to_string()
     "YOUR_AUTH_TOKEN".to_string()
 }
 
-//#[derive(Debug, Serialize, Deserialize)]
-//struct Credentials {
-//    #[serde(rename = "type")]
-//    cred_type: String,
-//    project_id: String,
-//    private_key_id: String,
-//    private_key: String,
-//    client_email: String,
-//    client_id: String,
-//    auth_uri: String,
-//    token_uri: String,
-//    auth_provider_x509_cert_url: String,
-//    client_x509_cert_url: String,
-//}
-//
-//async fn call_vision_api(
-//    image_data: Vec<u8>,
-//    token: &str,
-//) -> Result<String, Box<dyn std::error::Error>> {
-//    // Create a hyper client
-//    let https = HttpsConnector::new();
-//    let client = Client::builder().build::<_, hyper::Body>(https);
-//
-//    // Create a request to the Vision API
-//    let b64 = general_purpose::STANDARD.encode(&image_data);
-//    let request = Request::builder()
-//        .method("POST")
-//        .uri("https://vision.googleapis.com/v1/images:annotate")
-//        .header("Authorization", format!("Bearer {}", token))
-//        .header("Content-Type", "application/json")
-//        .body(Body::from(serde_json::to_string(&AnnotateImageRequest {
-//            image: Some(google_vision1::api::Image {
-//                content: Some(b64.as_bytes().to_vec()),
-//                source: None,
-//            }),
-//            features: todo!(),
-//            image_context: todo!(),
-//        })?))?;
-//
-//    // Send the request and get the response
-//    let response = client.request(request).await?;
-//
-//    // Read the response body as a string
-//    let body = hyper::body::to_bytes(response.into_body()).await?;
-//    let body_str = std::str::from_utf8(&body)?;
-//
-//    // Return the response body as a string
-//    Ok(body_str.to_string())
-//}
-//
-//fn do_vision(
-//    oauth2_token: &str,
-//    image_data: Vec<u8>,
-//) -> Result<String, Box<dyn std::error::Error>> {
-//    // Load the credentials from a file
-//    let credentials_file = std::fs::read_to_string("path/to/credentials.json").unwrap();
-//    let credentials: Credentials = serde_json::from_str(&credentials_file).unwrap();
-//
-//    // Call the Vision API
-//    let response = call_vision_api(image_data, oauth2_token);
-//
-//    return (response);
-//}
-//
+#[derive(Debug, Serialize, Deserialize)]
+struct Credentials {
+    #[serde(rename = "type")]
+    cred_type: String,
+    project_id: String,
+    private_key_id: String,
+    private_key: String,
+    client_email: String,
+    client_id: String,
+    auth_uri: String,
+    token_uri: String,
+    auth_provider_x509_cert_url: String,
+    client_x509_cert_url: String,
+}
+
+async fn call_vision_api(
+    image_data: Vec<u8>,
+    auth_token: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let b64 = general_purpose::STANDARD.encode(&image_data);
+
+    // Create a request to the Vision API
+    let client: Client<hyper::client::HttpConnector> = Client::new();
+    // build request to be sent to the Vision API
+    let request_vision_api: Request<Body> = Request::builder()
+        .method("POST")
+        .uri("https://vision.googleapis.com/v1/images:annotate")
+        .header("content-type", "application/json")
+        .header("Authorization", format!("Bearer {}", auth_token))
+        .body(Body::from(format!(
+            "{{\"requests\":[{{\"image\":{{\"content\":\"{}\"}},\"features\":[{{\"type\":\"TEXT_DETECTION\"}}]}}]}}",
+            b64
+        )))
+        .unwrap();
+
+    // Send the request and get the response
+    let response: Response<Body> = client.request(request_vision_api).await?;
+
+    // Read the response body as a string
+    let body = hyper::body::to_bytes(response.into_body()).await?;
+    let body_str = std::str::from_utf8(&body)?;
+
+    // Return the response body as a string
+    Ok(body_str.to_string())
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     // get port from command line argument
     let port = get_port_from_command_line_argument(args);
     // listen to port 666 for HTTP/1.1 requests (requires sudo privileges to bind to listener port)
     let listen_address_ipv4 = SocketAddr::from(([127, 0, 0, 1], port)); // NOTE: assumes IPv4 address for now
-
-    //    // Create a hyper service that listens for HTTP/1.1 requests
-    //    let service = service_fn(|req: Request<Body>| async move {
-    //        println!("Received request: {:?}", req);
-    //        if req.version() == Version::HTTP_11 {
-    //            // Extract auth token from headers (replace with actual extraction logic)
-    //            let auth_token = extract_auth_token(req.headers());
-    //
-    //            // Encode an image
-    //            let image_data = vec![0u8, 1u8, 2u8, 3u8]; // TODO: Not sure yet whether I'd want to deal with image here...
-    //            let encoded_image = general_purpose::STANDARD.encode(&image_data);
-    //
-    //            // Perform OCR or other processing with the auth token and encoded image
-    //
-    //            // Return a response
-    //            let response = format!(
-    //                "Auth Token: {}\nEncoded Image: {}",
-    //                auth_token, encoded_image
-    //            );
-    //            //Ok(Response::new(Body::from("ERROR: my_rust_app")))
-    //            Ok(Response::new(Body::from(response)))
-    //        } else {
-    //            // Note: it's usually better to return a Response with an appropriate StatusCode instead of an Err.
-    //            Err("not HTTP/1.1, abort connection")
-    //        }
-    //    });
-    //    // Create a hyper server
-    //    let server = Server::bind(&listen_address_ipv4).serve(service);
-    //
     println!("Listening on http://{}", listen_address_ipv4);
 
-    //let service = service_fn(|req: Request<Body>| async move {
-    //    println!("Received request: {:?}", req);
-    //    if req.version() == Version::HTTP_11 && req.uri().path() == "/oauth2/callback" {
-    //        // Extract query parameters from the request URI
-    //        let query_params = req.uri().query().unwrap_or("");
-    //        let query_pairs = form_urlencoded::parse(query_params.as_bytes());
+    // Create a hyper service that listens for HTTP/1.1 requests
+    {
+        use hyper::service::{make_service_fn, service_fn};
+        use hyper::{Body, Error, Response, Server};
+        let my_make_service = make_service_fn(|_unused| async {
+            Ok::<_, Error>(service_fn(|req_body: Request<Body>| async {
+                let req: Request<Body> = Request::builder()
+                    .method(req_body.method().clone())
+                    .uri(req_body.uri().clone())
+                    .body(req_body.into_body())
+                    .unwrap();
 
-    //        // Print out the query parameters
-    //        for (key, value) in query_pairs {
-    //            println!("{}: {}", key, value);
-    //        }
+                println!("Received request: {:?}", req);
+                if req.version() == Version::HTTP_11 {
+                    // Extract auth token from headers (replace with actual extraction logic)
+                    let auth_token = extract_auth_token(req.headers());
 
-    //        // Return a response with a 200 OK status code
-    //        let response = Response::builder()
-    //            .status(StatusCode::OK)
-    //            .body(Body::from("Received query parameters"))
-    //            .unwrap();
-    //        Ok(response)
-    //    } else {
-    //        // Return a response with a 404 Not Found status code
-    //        let response = Response::builder()
-    //            .status(StatusCode::NOT_FOUND)
-    //            .body(Body::from("Not found"))
-    //            .unwrap();
-    //        Ok(response)
-    //    }
-    //});
+                    // Encode an image
+                    let image_data = vec![0u8, 1u8, 2u8, 3u8]; // TODO: Not sure yet whether I'd want to deal with image here...
+                    let encoded_image = general_purpose::STANDARD.encode(&image_data);
+
+                    // Perform OCR or other processing with the auth token and encoded image
+
+                    // Return a response
+                    let response = format!(
+                        "[{}] Auth Token: {}\nEncoded Image: {}",
+                        PROJECT_ID, auth_token, encoded_image
+                    );
+                    //Ok(Response::new(Body::from("ERROR: my_rust_app")))
+                    Ok(Response::new(Body::from(response)))
+                } else {
+                    // Note: it's usually better to return a Response with an appropriate StatusCode instead of an Err.
+                    Err("not HTTP/1.1, abort connection")
+                }
+            }))
+        });
+        // Create a hyper server
+        let server = Server::bind(&listen_address_ipv4).serve(my_make_service);
+        let service_test = service_fn(|req: Request<Body>| async move {
+            println!("Received request: {:?}", req);
+            if req.version() == Version::HTTP_11 && req.uri().path() == "/oauth2/callback" {
+                // The URI is structured as follows:
+                //
+                // ```
+                // abc://username:password@example.com:123/path/data?key=value&key2=value2#fragid1
+                // |-|   |-------------------------------||--------| |-------------------| |-----|
+                //  |                  |                       |               |              |
+                // scheme          authority                 path            query         fragment
+                // ```
+                // Extract query parameters from the request URI
+                let query_params = req.uri().query().unwrap_or("");
+                let query_pairs = form_urlencoded::parse(query_params.as_bytes());
+
+                // Print out the query parameters
+                for (key, value) in query_pairs {
+                    println!("{}: {}", key, value);
+                }
+
+                // Return a response with a 200 OK status code
+                let response: Response<Body> = Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Body::from("Received query parameters"))
+                    .unwrap();
+                hyper::Result::Ok(response)
+            } else {
+                // Return a response with a 404 Not Found status code
+                let response: Response<Body> = Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Body::from("Not found"))
+                    .unwrap();
+                hyper::Result::Ok(response)
+            }
+        });
+    }
+
     let service_image = service_fn(|req: Request<Body>| async move {
         println!("Received request: {:?}", req);
         if req.version() == Version::HTTP_11 {
@@ -262,59 +207,98 @@ fn main() {
 
             // Return a response
             let response = format!(
-                "Auth Token: {}\nEncoded Image: {}",
-                auth_token, encoded_image
+                "[{}] Auth Token: {}\nEncoded Image: {}",
+                PROJECT_ID, auth_token, encoded_image
             );
             //Ok(Response::new(Body::from("ERROR: my_rust_app")))
             Ok(Response::new(Body::from(response)))
         } else {
             // Note: it's usually better to return a Response with an appropriate StatusCode instead of an Err.
-            Err("not HTTP/1.1, abort connection")
+            Err(format!("[{}] not HTTP/1.1, abort connection", PROJECT_ID))
         }
     });
 
     //#[cfg(feature = "tcp")]
-    async fn run() {
+    async fn fn_future_async_run(listen_address_ipv4: &SocketAddr) {
         use hyper::service::{make_service_fn, service_fn};
         use hyper::{Body, Error, Response, Server};
 
-        let make_service = make_service_fn(|_unused| async {
-            Ok::<_, Error>(service_fn(|req_body: Request<Body>| async {
+        let make_service = make_service_fn(|addr_Stream: &hyper::server::conn::AddrStream| async {
+            Ok::<_, hyper::Error>(service_fn(|req_body: Request<Body>| async {
                 let req: Request<Body> = Request::builder()
                     .method(req_body.method().clone())
                     .uri(req_body.uri().clone())
                     .body(req_body.into_body())
                     .unwrap();
 
-                match req.version() == Version::HTTP_11 && req.uri().path() == "/oauth2/callback" {
+                let http_version = req.version();
+                let http_method = req.method().clone();
+                let http_uri = req.uri().clone();
+                let http_body = req.body().clone();
+                let http_headers = req.headers().clone();
+                // The URI is structured as follows:
+                //
+                // ```
+                // abc://username:password@example.com:123/path/data?key=value&key2=value2#fragid1
+                // |-|   |-------------------------------||--------| |-------------------| |-----|
+                //  |                  |                       |               |              |
+                // scheme          authority                 path            query         fragment
+                // ```
+                // Extract query parameters from the request URI
+                let query_params = http_uri.query().unwrap_or("");
+                let query_pairs = form_urlencoded::parse(query_params.as_bytes());
+                // Print out the query parameters
+                println!("[{}] Received request: {:?}", PROJECT_ID, req);
+                println!("Received query parameters: ");
+                for (key, value) in query_pairs {
+                    println!("{}: {}", key, value);
+                }
+                match http_version == Version::HTTP_11 {
                     true => {
-                        // Extract query parameters from the request URI
-                        let query_params = req.uri().query().unwrap_or("");
-                        let query_pairs = form_urlencoded::parse(query_params.as_bytes());
-
-                        // Print out the query parameters
-                        for (key, value) in query_pairs {
-                            println!("{}: {}", key, value);
+                        match http_uri.path() {
+                            "/oauth2/callback" => {
+                                // Return a response with a 200 OK status code
+                                let response = hyper::Response::builder()
+                                    .status(StatusCode::OK)
+                                    .body(Body::from(
+                                        "place holder to request at '/oauth2/callback' path",
+                                    ))
+                                    .unwrap();
+                                let ret_response: Result<Response<Body>, &str> = Ok(response);
+                                ret_response
+                            }
+                            _ => {
+                                // default routing path
+                                let response = hyper::Response::builder()
+                                    .status(StatusCode::FORBIDDEN)
+                                    .body(Body::from(format!(
+                                        "[{}] Unhandled routing path '{}'",
+                                        PROJECT_ID,
+                                        http_uri.path()
+                                    )))
+                                    .unwrap();
+                                let ret_response: Result<Response<Body>, &str> = Ok(response);
+                                ret_response
+                            }
                         }
-
-                        // Return a response with a 200 OK status code
-                        let response = Response::builder()
-                            .status(StatusCode::OK)
-                            .body(Body::from("Received query parameters"))
-                            .unwrap();
-                        Ok(response)
                     }
-                    false => {
-                        // default routing path
-                        Err("ERROR: my_rust_app")
-                        //Ok::<_, Error>(Response::new(Body::from("ERROR: my_rust_app")))
+                    _ => {
+                        let response = hyper::Response::builder()
+                            .status(StatusCode::HTTP_VERSION_NOT_SUPPORTED)
+                            .body(Body::from(
+                                StatusCode::HTTP_VERSION_NOT_SUPPORTED
+                                    .canonical_reason()
+                                    .unwrap(),
+                            ))
+                            .unwrap();
+                        let ret_response: Result<Response<Body>, &str> = Ok(response);
+                        ret_response
                     }
                 }
             }))
         });
         // listen to port 666 for HTTP/1.1 requests (requires sudo privileges to bind to listener port)
-        let listen_address_ipv4_forced_port_666 = SocketAddr::from(([127, 0, 0, 1], 666)).into();
-        let server = Server::bind(&listen_address_ipv4_forced_port_666).serve(make_service);
+        let server = Server::bind(&listen_address_ipv4).serve(make_service);
 
         // Prepare some signal for when the server should start shutting down...
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
@@ -331,7 +315,6 @@ fn main() {
         let _ = tx.send(());
     }
 
-    // run it
     //#[cfg(feature = "tcp")]
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(4)
@@ -339,5 +322,5 @@ fn main() {
         .enable_io() // for now, just enable all I/O
         .build()
         .unwrap();
-    rt.block_on(run());
+    rt.block_on(fn_future_async_run(&listen_address_ipv4.clone()));
 }

@@ -2,7 +2,8 @@ version: '3.11'
 
 networks:
   # the host (edge-router) that is hosting the docker containers should have a static IP address of .1
-  my-rust-app-network: 
+  my-rust-app-network:
+    # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
     driver: bridge
     #ipam:
     #  driver: default
@@ -48,7 +49,7 @@ services:
     hostname: internal-developers
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     #no need to add any args such as "--http-address=0.0.0.0:4180" for they should just all be set in oauth2_proxy.cfg file
-    command: 
+    command:
       - "--config=/etc/oauth2_proxy.cfg"
       - "--http-address=0.0.0.0:4180"
     # port-forward 4180 on THIS machine to 4180 in the container
@@ -77,10 +78,7 @@ services:
     #restart: unless-stopped
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     networks:
-      my-rust-app-network: {
-        # sadly, if I do not specify the IP address, things just don't work...
-        #ipv4_address: 10.86.86.150
-      }
+      my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
 
   # www is a static website that is hosted on nginx for the purpose of my-rust-app to be able to access it
   # it is separate from my-rust-app because the nginx:latest image could be using alpine instead of debian
@@ -102,16 +100,13 @@ services:
       - VIRTUAL_PORT=80,443
     #restart: unless-stopped
     networks:
-      my-rust-app-network: {
-        # sadly, if I do not specify the IP address, things just don't work...
-        #ipv4_address: 10.86.86.100
-      }
+      my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
 
   # though it's an overkill, I like the concept of persisting/caching
   # auth token in redis
   redis:
     image: redis:latest
-    command: redis-server 
+    command: redis-server
     ports:
       - 6379
     # if and when we decide to persist the redis data, we can use this volume, but for now, we just need to cache it
@@ -138,10 +133,6 @@ services:
       - VIRTUAL_PROTO=https
       - VIRTUAL_PORT=666
     networks:
-      my-rust-app-network: {
-        # sadly, if I do not specify the IP address, things just don't work...
-        #ipv4_address: 10.86.86.200
-      }
-
+      my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
   #volumes:
   #  redis-data:

@@ -92,6 +92,7 @@ location / {
 # go to http://internal-developers.yourdomain.tld:4180/ping to verify we're live
 # Next, go to http://internal-developers.yourdomain.tld:4180/oauth2/sign_in to login using your gmail account (use sign_in instead of start to clear last cookies if any)
 # Now, go to http://internal-developers.yourdomain.tld:4180/oauth2/userinfo to verify you were authorized
+# Note that you can also call http://internal-developers.yourdomain.tld:4180/oauth2/auth to verify you were authorized (you should get a 202 Accepted response)
 # Finally, go to http://internal-developers.yourdomain.tld:4180/oauth2/sign_out to logout
 # And go to http://internal-developers.yourdomain.tld:4180/oauth2/userinfo to verify you were logged out (you should get a 401 Unauthorized response)
 
