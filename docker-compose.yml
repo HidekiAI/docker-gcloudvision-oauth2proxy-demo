@@ -1,16 +1,21 @@
 version: '3.11'
 
+# Dependencies 
+# ============
+# Note that 'links:' needs to be correctly set up or it will cause circular-dependencies error)
+# it is for the purpose of network ifup and ifdown
+# gateway +-> internal-developers
+#         +-> my-rust-app -> internal-developers
+#         +-> www +-> internal-developers
+#                 +-> my-rust-app
+# at this time, the internal-developers service is the common denominator for all the other services, for
+# it is the service that has the capability to auth against google cloud oauth2
+
 networks:
   # the host (edge-router) that is hosting the docker containers should have a static IP address of .1
   my-rust-app-network:
     # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
     driver: bridge
-    #ipam:
-    #  driver: default
-    #  config:
-    #      # assign a subnet mainly for debugging purposes, otherwise the port exposed on THIS host should suffice
-    #      - subnet: 10.86.86.0/24
-    #        gateway: 10.86.86.1
 
 services:
   # gateway is the nginx-proxy that routes to the internal-developers and www services
@@ -30,23 +35,32 @@ services:
       - "80:80"
       - "443:443"
     environment:
+      # all requests that does not have "www.yourdomain.tld" or "internal-developers.yourdomain.tld" will just default to here
+      # including requests such as http://10.86.86.86/oauth2/callback and http://localhost:4180/oauth2/callback which
+      # has no routing rules defined in the vhost.d folder
+      VIRTUAL_HOST: "*"
+      VIRTUAL_PROTO: "https"
+      VIRTUAL_PORT: "80,443,4180,${MY_RUST_APP_PORT}"
+      VIRTUAL_PATH: "/"
       MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
+      FQ_DOMAIN_NAME: "${FQ_DOMAIN_NAME}" # e.g. "yourdomain.tld" to be used in the vhost.d folder (my-routes.conf file)
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
       - "./vhost.d:/etc/nginx/vhost.d:ro"
       - "./ssl/gateway/certs:/etc/nginx/certs/:ro"
       - "./www/gateway:/usr/share/nginx/html:ro"
     networks:
-      # gateways has to have a static IP so that edge-routers can route to here...
       my-rust-app-network:
-        #ipv4_address: 10.86.86.86
+        # create aliases so that each container can communicate with each other via their FQDN rather than hostname
         aliases:
           - internal-developers.${FQ_DOMAIN_NAME}
           - www.${FQ_DOMAIN_NAME}
           - my-rust-app.${FQ_DOMAIN_NAME}
+    # create secure ONE-WAY-tunnels to these containers:
     links:
       - internal-developers
       - www
+      - my-rust-app
 
   internal-developers:
     # see vhost.d/internal-developers.yourdomain.tld for the proxy configuration (in particular, "proxy_pass" location which port-forwards to port 4180)
@@ -85,7 +99,12 @@ services:
     #restart: unless-stopped
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     networks:
-      my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
+      my-rust-app-network:
+        # create aliases so that each container can communicate with each other via their FQDN rather than hostname
+        aliases:
+          - internal-developers.${FQ_DOMAIN_NAME}
+          - www.${FQ_DOMAIN_NAME}
+          - my-rust-app.${FQ_DOMAIN_NAME}
 
   # www is a static website that is hosted on nginx for the purpose of my-rust-app to be able to access it
   # it is separate from my-rust-app because the nginx:latest image could be using alpine instead of debian
@@ -108,7 +127,16 @@ services:
       MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
     #restart: unless-stopped
     networks:
-      my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
+      my-rust-app-network:
+        # create aliases so that each container can communicate with each other via their FQDN rather than hostname
+        aliases:
+          - internal-developers.${FQ_DOMAIN_NAME}
+          - www.${FQ_DOMAIN_NAME}
+          - my-rust-app.${FQ_DOMAIN_NAME}
+    # create secure ONE-WAY-tunnels to these containers:
+    links:
+      - internal-developers
+      - my-rust-app
 
   # though it's an overkill, I like the concept of persisting/caching
   # auth token in redis
@@ -128,10 +156,6 @@ services:
   my-rust-app:
     hostname: my-rust-app
     image: my-rust-app-image:latest
-    # port forward 8000 on THIS host to port 8000 in the container
-    depends_on:
-      - www
-      - internal-developers
     ports:
       # We only need the ports open to what the Listener is aware of, no need to have ports 80/443
       - "${MY_RUST_APP_PORT}:${MY_RUST_APP_PORT}"
@@ -146,6 +170,14 @@ services:
       - "/usr/local/bin/my_rust_app"
       - "--port=${MY_RUST_APP_PORT}"
     networks:
-      my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
+      my-rust-app-network:
+        # create aliases so that each container can communicate with each other via their FQDN rather than hostname
+        aliases:
+          - internal-developers.${FQ_DOMAIN_NAME}
+          - www.${FQ_DOMAIN_NAME}
+          - my-rust-app.${FQ_DOMAIN_NAME}
+    # create secure ONE-WAY-tunnels to these containers:
+    links:
+      - internal-developers
   #volumes:
   #  redis-data:

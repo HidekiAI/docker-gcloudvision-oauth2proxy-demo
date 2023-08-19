@@ -4,6 +4,16 @@ if ! [ -e docker-compose.yml ] ; then
 	echo "# ERROR: Unable to locate 'docker-compose.yml' file in the current directory '$(pwd)'"
 	exit -1
 fi
+_DOCKER=$(which docker)
+_DOCKER_COMPOSE=$(which docker-compose)
+if [ x"${_DOCKER}" == x"" ]; then
+	echo "# ERROR: Unable to locate docker"
+	exit -1
+fi
+if [ x"${_DOCKER_COMPOSE}" == x"" ]; then
+    # assume NEWER version of Docker is installed, in which the legacy Python version of 'docker-compose' has been replaced with Go version of 'docker compose'
+    _DOCKER_COMPOSE="${_DOCKER} compose"
+fi
 
 source build_image.env
 
@@ -16,18 +26,18 @@ set -o nounset      # Treat unset variables as an error
 ./stop.sh
 
 # stop images if running
-docker-compose down --remove-orphans
+${_DOCKER_COMPOSE} down --remove-orphans
 
 # first, build images
 ./build_image.sh ${FQ_DOMAIN_NAME} ${MY_RUST_APP_PORT}
 sleep 5
 
 # Show current configuration prior to running
-docker-compose config
+${_DOCKER_COMPOSE} config
 
 # now run
-docker-compose up -d
+${_DOCKER_COMPOSE} up -d
 # show which ports are exposed
-docker ps
+${_DOCKER} ps
 
 echo "Run '\$stats.sh' to check stats"

@@ -3,19 +3,23 @@
 # Arg2: Rust app port (i.e. "666")
 
 function handle_error {
-    echo "# ERROR: An error occurred PID=$$ '$BASH_COMMAND' RetCode=$? LINE=$LINENO" 1>&2
+    set +x
+    echo "# ERROR: An error occurred PID=$$ Command='$BASH_COMMAND' with RetCode=$? LINE=$LINENO" 1>&2
     exit -1
 }
 function handle_interrupt {
+    set +x
     echo "Interrupt signal received. Exiting...  LastError RC=$? LINE=$LINENO"
     exit -2
 }
 function handle_term {
+    set +x
     echo "Termination signal received. Performing cleanup...  LastError RC=$? LINE=$LINENO"
     exit -3
 }
 # Probabaly not needed but useful during debugging...
 function handle_exit {
+    set +x
     echo "Script exited. Performing cleanup... RC=$?"
     # don't exit with 0, since that will cause the trap to be called again
     exit $?
@@ -48,16 +52,22 @@ export OAUTH2_PROXY_COOKIE_SECRET=""
 
 _ENABLE_SECURITY_SCOUT=0
 
+# NOTE: $which command will return RC=1 which can trigger $trap "EXIT"
+trap - ERR
 _DOCKER=$(which docker)
-_DOCKER_COMPOSE=$(which docker-compose)
 if [ x"${_DOCKER}" == x"" ]; then
 	echo "# ERROR: Unable to locate docker"
 	exit -1
 fi
+_DOCKER_COMPOSE=$( which docker-compose )
 if [ x"${_DOCKER_COMPOSE}" == x"" ]; then
-    echo "# ERROR: Unable to locate docker-compose"
-    exit -1
+    # assume NEWER version of Docker is installed, in which the legacy Python version of 'docker-compose' has been replaced with Go version of 'docker compose'
+    _DOCKER_COMPOSE="${_DOCKER} compose"
 fi
+trap handle_term TERM
+trap handle_error ERR
+trap handle_interrupt INT
+trap handle_exit EXIT   # this trap is not inherited by child processes, and also not really needed except for debugging
 ./stop.sh
 
 # NOTE: if not using docker-compose, then we need to build the images manually
@@ -93,9 +103,24 @@ echo "# MY_RUST_APP_PORT: ${MY_RUST_APP_PORT}"
 pushd . 2>&1 > /dev/null
 cd GCloudVision/
 # Dockerfile version will build this as 'cargo build --release', no local target will be built
+set -x
 ${_DOCKER} build --build-arg MY_RUST_APP_PORT=${MY_RUST_APP_PORT} --tag my-rust-app-image .
+_ERR=$?
+set +x
+if [ ${_ERR} -ne 0  ]; then
+    echo "# ERROR: ${_DOCKER} build failed with return code=${_ERR}"
+    exit $_ERR
+fi
+
 popd
+set -x
 ${_DOCKER_COMPOSE} build 
+set +x
+if [ ${_ERR} -ne 0  ]; then
+    echo "# ERROR: ${_DOCKER_COMPOSE} build failed with return code=${_ERR}"
+    exit $_ERR
+fi
+_ERR=$?
 
 ${_DOCKER} image ls
 
