@@ -4,10 +4,14 @@ if ! [ -e docker-compose.yml ] ; then
 	echo "# ERROR: Unable to locate 'docker-compose.yml' file in the current directory '$(pwd)'"
 	exit -1
 fi
+
 source build_image.env
+
 # for debug puproses, echo the cookie secret decoded
 echo "# OAUTH2_PROXY_COOKIE_SECRET: $(echo ${OAUTH2_PROXY_COOKIE_SECRET} | tr -- '-_' '+/' | base64 -d | wc -c) bytes"   # if you care about something more than byte-count of 32, you can replace the 'wc -c' with 'hexdump -C'
-echo "# FQ_DOMAIN_NAME=${FQ_DOMAIN_NAME}"
+echo "# FQ_DOMAIN_NAME: ${FQ_DOMAIN_NAME}"
+echo "# MY_RUST_APP_PORT: ${MY_RUST_APP_PORT}"
+set -o nounset      # Treat unset variables as an error
 
 ./stop.sh
 
@@ -15,7 +19,7 @@ echo "# FQ_DOMAIN_NAME=${FQ_DOMAIN_NAME}"
 docker-compose down --remove-orphans
 
 # first, build images
-./build_image.sh ${FQ_DOMAIN_NAME}
+./build_image.sh ${FQ_DOMAIN_NAME} ${MY_RUST_APP_PORT}
 sleep 5
 
 # Show current configuration prior to running

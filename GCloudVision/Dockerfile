@@ -3,6 +3,7 @@ FROM rust:latest as builder
 
 # Set up your Rust application directory
 WORKDIR /usr/src/my_rust_app
+
 #RUN mkdir -p /usr/local/bin
 #RUN mkdir -p /usr/src/my_rust_app/target/release/
 
@@ -11,6 +12,7 @@ RUN mkdir -p src
 COPY src/* ./src/
 COPY *.toml .
 
+RUN rustup component add rustfmt
 # Build the Rust application ON the target-host (simply put, it is so that when built, it will generate Linux-based target (i.e. "myexec.exe" versus "myexec" generated files))
 RUN cargo build --release --verbose
 

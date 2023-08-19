@@ -1,14 +1,50 @@
 #!/bin/bash
-# Arg1: Domain name to be used for redirect-callbacks, vhosts.d, and ssl certs (i.e. "mydomainname.tld")
+# Arg1: Base/root domain name to be used for redirect-callbacks, vhosts.d, and ssl certs (i.e. use "mydomainname.tld" for "developers.mydomainname.tld")
+# Arg2: Rust app port (i.e. "666")
+
+function handle_error {
+    echo "# ERROR: An error occurred PID=$$ '$BASH_COMMAND' RetCode=$? LINE=$LINENO" 1>&2
+    exit -1
+}
+function handle_interrupt {
+    echo "Interrupt signal received. Exiting...  LastError RC=$? LINE=$LINENO"
+    exit -2
+}
+function handle_term {
+    echo "Termination signal received. Performing cleanup...  LastError RC=$? LINE=$LINENO"
+    exit -3
+}
+# Probabaly not needed but useful during debugging...
+function handle_exit {
+    echo "Script exited. Performing cleanup... RC=$?"
+    # don't exit with 0, since that will cause the trap to be called again
+    exit $?
+}
+trap handle_term TERM
+trap handle_error ERR
+trap handle_interrupt INT
+trap handle_exit EXIT   # this trap is not inherited by child processes, and also not really needed except for debugging
+
 if [ x"$1" == x"" ] ; then
     echo "# ERROR: Missing domain name argument"
-    echo "# Usage: $0 <domain_name.tld>"
+    echo "# Usage: $0 <domain_name.tld> <rust_app_port>"
     exit -1
 fi
-set -o nounset      # Treat unset variables as an error
 
 FQ_DOMAIN_NAME=$1
+shift
+if [ x"$1" == x"" ] ; then
+    echo "# ERROR: Missing rust_app_port argument"
+    echo "# Usage: $0 <domain_name.tld> <rust_app_port>"
+    exit -1
+fi
+MY_RUST_APP_PORT=$1
+shift
+set -o nounset      # Treat unset variables as an error
+
 export FQ_DOMAIN_NAME=${FQ_DOMAIN_NAME:-"your.domain.name.tld"}
+export MY_RUST_APP_PORT=${MY_RUST_APP_PORT:-"666"}
+export OAUTH2_PROXY_COOKIE_SECRET=""
 
 _ENABLE_SECURITY_SCOUT=0
 
@@ -47,13 +83,17 @@ fi
 # but the nice thing about build_image.env is that you can `$ source build_image.env` to be used as-is
 echo "export OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET}" > build_image.env
 echo "export FQ_DOMAIN_NAME=${FQ_DOMAIN_NAME}" >> build_image.env
+echo "export MY_RUST_APP_PORT=${MY_RUST_APP_PORT}" >> build_image.env
+
 # for debug puproses, echo the cookie secret decoded
 echo "# OAUTH2_PROXY_COOKIE_SECRET: $(echo ${OAUTH2_PROXY_COOKIE_SECRET} | tr -- '-_' '+/' | base64 -d | wc -c) bytes"   # if you care about something more than byte-count of 32, you can replace the 'wc -c' with 'hexdump -C'
+echo "# FQ_DOMAIN_NAME: ${FQ_DOMAIN_NAME}"
+echo "# MY_RUST_APP_PORT: ${MY_RUST_APP_PORT}"
 
 pushd . 2>&1 > /dev/null
 cd GCloudVision/
 # Dockerfile version will build this as 'cargo build --release', no local target will be built
-${_DOCKER} build --tag my-rust-app-image .
+${_DOCKER} build --build-arg MY_RUST_APP_PORT=${MY_RUST_APP_PORT} --tag my-rust-app-image .
 popd
 ${_DOCKER_COMPOSE} build 
 
@@ -71,3 +111,5 @@ if [ x"$_ENABLE_SECURITY_SCOUT" != x"" ] && [ ${_ENABLE_SECURITY_SCOUT} -ne 0 ] 
 
     ${_DOCKER} scout recommendations my-rust-app-image
 fi
+
+exit 0

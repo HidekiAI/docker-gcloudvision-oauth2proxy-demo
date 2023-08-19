@@ -114,6 +114,10 @@ location /oauth2/sign_out {
 location /oauth2/start {
     proxy_pass http://internal-developers:4180/oauth2/start;
 }
+
+# See "oauth2_proxy.cfg" file:
+# My redirect_url is "https://internal-developers.yourdomain.tld/oauth2/callback"
+#
 # redirect callback
 # Upon authentication, the oauth2-proxy will redirect the user to the /oauth2/callback path as:
 # 'http://myhost.localdomain.tld/oauth2/callback?state=...&code=...&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=0&prompt=consent'
@@ -129,11 +133,13 @@ location /oauth2/callback {
     #proxy_pass       http://$host:4180/oauth2/callback;
     #proxy_pass       http://internal-developers:4180/oauth2/callback;
     #proxy_pass       http://internal-developers:4180/callback;
-    proxy_pass       http://my-rust-app:6666/oauth2/callback;
+    proxy_pass       http://my-rust-app:${MY_RUST_APP_PORT}/oauth2/callback;
     proxy_set_header Host                    $host;
     proxy_set_header X-Real-IP               $remote_addr;
     proxy_set_header X-Scheme                $scheme;
     proxy_set_header X-Auth-Request-Redirect $request_uri;
+
+    env MY_RUST_APP_PORT;
 }
 location /oauth2/userinfo {
     proxy_pass http://internal-developers:4180/oauth2/userinfo;

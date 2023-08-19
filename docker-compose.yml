@@ -24,10 +24,13 @@ services:
     depends_on:
       - internal-developers
       - www
+      - my-rust-app
     # on the gateway proxy, ports opened are straight-pass-through 1:1 mapped
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
       - "./vhost.d:/etc/nginx/vhost.d:ro"
@@ -40,6 +43,7 @@ services:
         aliases:
           - internal-developers.${FQ_DOMAIN_NAME}
           - www.${FQ_DOMAIN_NAME}
+          - my-rust-app.${FQ_DOMAIN_NAME}
     links:
       - internal-developers
       - www
@@ -54,23 +58,26 @@ services:
       - "--http-address=0.0.0.0:4180"
     # port-forward 4180 on THIS machine to 4180 in the container
     ports:
+      # Note that callbacks/redirects are not routed to port 4180, so we need to expose 80 and 443 as well
       - "4180:4180"
       - 80
       - 443
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
-      - VIRTUAL_HOST=internal-developers.${FQ_DOMAIN_NAME}
-      - VIRTUAL_PROTO=https
-      - VIRTUAL_PORT=4180
-      # NOTE: we can technically populate all the OAUTH2_PROXY_xxx as env-vars here instead of in oauth2_proxy.cfg to reduce another file dependencies...
-      # the beauty of having it here instead of in the oauth2_proxy.cfg file is that you can set things up
-      # as env-var, for example: 'OAUTH2_PROXY_COOKIE_SECRET: $(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)'
-      # which, if you're in BASH already, it'll setup different cookie every rebuild
-      - OAUTH2_PROXY_CONFIG=/etc/oauth2_proxy.cfg
-      # In your BASH script that will call "docker-compose build", do this:
-      #$ export OAUTH2_PROXY_COOKIE_SECRET="$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)"
-      # IMPORTANT: DO _NOT_ place quotation marks around the value of the env-var, otherwise it'll be treated as a string instead of a command causing base64 to be +2 bytes more than it should be
-      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET}
+      VIRTUAL_HOST: "internal-developers.${FQ_DOMAIN_NAME}"
+      VIRTUAL_PROTO: "https"
+      VIRTUAL_PORT: "4180,80,443"
+      MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
+      # NOTE: "we can technically populate all the OAUTH2_PROXY_xxx as env-vars here instead of in oauth2_proxy.cfg to reduce another file dependencies..."
+      # the beauty of having it here instead of in the oauth2_proxy.cfg file is that you can set things up"
+      # as env-var, for example: "'OAUTH2_PROXY_COOKIE_SECRET: "$(dd if: "/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)'"
+      # which, if you're in BASH already, it'll setup different cookie every rebuild"
+      OAUTH2_PROXY_CONFIG: "/etc/oauth2_proxy.cfg"
+      # In your BASH script that will call "docker-compose build", do this:"
+      #$ export OAUTH2_PROXY_COOKIE_SECRET: ""$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)""
+      # IMPORTANT: "DO _NOT_ place quotation marks around the value of the env-var, otherwise it'll be treated as a string instead of a command causing base64 to be +2 bytes more than it should be"
+      OAUTH2_PROXY_COOKIE_SECRET: "${OAUTH2_PROXY_COOKIE_SECRET}"
+      OAUTH2_PROXY_UPSTREAMS: "http://my-rust-app:${MY_RUST_APP_PORT}"
     volumes:
       - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
       - "./www/internal-developers:/usr/share/nginx/html:ro"
@@ -95,9 +102,10 @@ services:
       - 443
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
-      - VIRTUAL_HOST=www.${FQ_DOMAIN_NAME}
-      - VIRTUAL_PROTO=https
-      - VIRTUAL_PORT=80,443
+      VIRTUAL_HOST: "www.${FQ_DOMAIN_NAME}"
+      VIRTUAL_PROTO: "https"
+      VIRTUAL_PORT: "80,443"
+      MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
     #restart: unless-stopped
     networks:
       my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
@@ -113,25 +121,30 @@ services:
     #volumes:
     #  - redis-data:/data
     environment:
-      - VIRTUAL_HOST=redis.${FQ_DOMAIN_NAME}
-      - VIRTUAL_PROTO=https
-      - VIRTUAL_PORT=6379
+      VIRTUAL_HOST: "redis.${FQ_DOMAIN_NAME}"
+      VIRTUAL_PROTO: "https"
+      VIRTUAL_PORT: "6379"
 
   my-rust-app:
     hostname: my-rust-app
     image: my-rust-app-image:latest
     # port forward 8000 on THIS host to port 8000 in the container
     depends_on:
-      - gateway
       - www
       - internal-developers
     ports:
-      - "666:666"
+      # We only need the ports open to what the Listener is aware of, no need to have ports 80/443
+      - "${MY_RUST_APP_PORT}:${MY_RUST_APP_PORT}"
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     environment:
-      - VIRTUAL_HOST=my-rust-app.${FQ_DOMAIN_NAME}
-      - VIRTUAL_PROTO=https
-      - VIRTUAL_PORT=666
+      # NOTE: VIRTUAL_* env vars are defined here so that we can have nginx-proxy forward/route REST calls to my-rust-app
+      VIRTUAL_HOST: "my-rust-app.${FQ_DOMAIN_NAME}"
+      VIRTUAL_PROTO: "https"
+      VIRTUAL_PORT: "${MY_RUST_APP_PORT}"
+      MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
+    command: 
+      - "/usr/local/bin/my_rust_app"
+      - "--port=${MY_RUST_APP_PORT}"
     networks:
       my-rust-app-network: {} # NOTE: when possible, avoid specifying the IP address, especially on a multi-homed host for you may get routing issues where payloads are routed to wrong interface
   #volumes:
