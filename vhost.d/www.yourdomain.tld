@@ -11,7 +11,6 @@ include ./ssl/www/ssl.conf;
 
 location / {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     proxy_pass http://$host/index.html;
@@ -25,7 +24,6 @@ location / {
 
 location /oauth2/ {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     # route it to internal-developers
@@ -33,7 +31,6 @@ location /oauth2/ {
 }
 location /oauth2/auth {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     # route it to internal-developers
@@ -42,7 +39,6 @@ location /oauth2/auth {
 # redirect callback
 location /oauth2/callback {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     # route it to internal-developers
@@ -51,7 +47,6 @@ location /oauth2/callback {
 
 location /status {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     proxy_pass http://$host/status;
@@ -59,7 +54,6 @@ location /status {
 
 location /manga-furigana/oauth2/callback {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     proxy_pass http://$host/manga-furigana-ouath2-callback;
@@ -67,7 +61,6 @@ location /manga-furigana/oauth2/callback {
 
 location /manga-furigana/ {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     proxy_pass http://$host/manga-furigana-default;

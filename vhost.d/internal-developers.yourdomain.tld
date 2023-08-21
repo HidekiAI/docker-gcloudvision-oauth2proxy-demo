@@ -16,7 +16,6 @@ include ./ssl/internal-developers/ssl.conf;
 
 location /oauth2/ {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     proxy_pass       http://$host:4180;
@@ -31,7 +30,6 @@ location /oauth2/ {
 
 location / {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     auth_request /oauth2/auth;
@@ -147,7 +145,6 @@ location /oauth2/userinfo {
 
 location = /oauth2/auth {
     #internal;   # only allow internal redirects
-    #allow 10.86.86.0/24;    # allow only this subnet
     #deny all;   # deny everyone else
 
     proxy_pass       http://$host:4180/oauth2/auth;

@@ -78,7 +78,8 @@ services:
       - 443
     # environment variables for the nginx-proxy analyzer/generator to dynamically generate the proxy configuration
     environment:
-      VIRTUAL_HOST: "internal-developers.${FQ_DOMAIN_NAME}"
+      #VIRTUAL_HOST: "internal-developers.${FQ_DOMAIN_NAME}"
+      VIRTUAL_HOST: "*:4180"
       VIRTUAL_PROTO: "https"
       VIRTUAL_PORT: "4180,80,443"
       MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
@@ -162,7 +163,8 @@ services:
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     environment:
       # NOTE: VIRTUAL_* env vars are defined here so that we can have nginx-proxy forward/route REST calls to my-rust-app
-      VIRTUAL_HOST: "my-rust-app.${FQ_DOMAIN_NAME}"
+      #VIRTUAL_HOST: "my-rust-app.${FQ_DOMAIN_NAME}"
+      VIRTUAL_HOST: "*:${MY_RUST_APP_PORT}"
       VIRTUAL_PROTO: "https"
       VIRTUAL_PORT: "${MY_RUST_APP_PORT}"
       MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"

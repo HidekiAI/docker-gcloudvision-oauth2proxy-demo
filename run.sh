@@ -5,15 +5,12 @@ if ! [ -e docker-compose.yml ] ; then
 	exit -1
 fi
 _DOCKER=$(which docker)
-_DOCKER_COMPOSE=$(which docker-compose)
 if [ x"${_DOCKER}" == x"" ]; then
 	echo "# ERROR: Unable to locate docker"
 	exit -1
 fi
-if [ x"${_DOCKER_COMPOSE}" == x"" ]; then
-    # assume NEWER version of Docker is installed, in which the legacy Python version of 'docker-compose' has been replaced with Go version of 'docker compose'
-    _DOCKER_COMPOSE="${_DOCKER} compose"
-fi
+# assume NEWER version of Docker is installed, in which the legacy Python version of 'docker-compose' has been replaced with Go version of 'docker compose'
+_DOCKER_COMPOSE="${_DOCKER} compose"
 
 source build_image.env
 
