@@ -4,10 +4,10 @@ version: '3.11'
 # ============
 # Note that 'links:' needs to be correctly set up or it will cause circular-dependencies error)
 # it is for the purpose of network ifup and ifdown
-# gateway +-> internal-developers
-#         +-> my-rust-app -> internal-developers
-#         +-> www +-> internal-developers
-#                 +-> my-rust-app
+# gateway +-> internal-developers -> redis
+#         +-> my-rust-app -> internal-developers -> redis
+#         +-> www +-> internal-developers -> redis
+#                 +-> my-rust-app -> internal-developers -> redis
 # at this time, the internal-developers service is the common denominator for all the other services, for
 # it is the service that has the capability to auth against google cloud oauth2
 
@@ -24,7 +24,7 @@ services:
   # it is also the only service that is exposed to the outside world (hence it's the proxy)
   gateway:
     hostname: gateway
-    #restart: unless-stopped
+    restart: unless-stopped
     image: jwilder/nginx-proxy
     depends_on:
       - internal-developers
@@ -65,11 +65,18 @@ services:
   internal-developers:
     # see vhost.d/internal-developers.yourdomain.tld for the proxy configuration (in particular, "proxy_pass" location which port-forwards to port 4180)
     hostname: internal-developers
+    restart: unless-stopped
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     #no need to add any args such as "--http-address=0.0.0.0:4180" for they should just all be set in oauth2_proxy.cfg file
+    depends_on:
+      - redis
     command:
       - "--config=/etc/oauth2_proxy.cfg"
-      - "--http-address=0.0.0.0:4180"
+      # NOTE: Package oauth2-proxy does not support cfg file, so we need to use the command-line args instead
+      # See: https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/session_storage/#redis-storage
+      - "--session-store-type=redis"
+      - "--redis-connection-url=redis://redis:6379/1"
+
     # port-forward 4180 on THIS machine to 4180 in the container
     ports:
       # Note that callbacks/redirects are not routed to port 4180, so we need to expose 80 and 443 as well
@@ -97,7 +104,6 @@ services:
       - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
       - "./www/internal-developers:/usr/share/nginx/html:ro"
       - "./ssl/internal-developers/certs:/etc/nginx/certs/:ro"
-    #restart: unless-stopped
     # from inside the my-rust-app container, you could access the oauth2-proxy service at http://oauth2-proxy:4180.
     networks:
       my-rust-app-network:
@@ -106,12 +112,17 @@ services:
           - internal-developers.${FQ_DOMAIN_NAME}
           - www.${FQ_DOMAIN_NAME}
           - my-rust-app.${FQ_DOMAIN_NAME}
+          - redis # have to define one here, or else it'll fail on '--redis-connection-url=redis://redis:6379' command
+    # create secure ONE-WAY-tunnels to these containers:
+    links:
+      - redis # IMPORTANT: "have to define one here, or else it'll fail on '--redis-connection-url=redis://redis:6379' command" because redist needs to be running first to accept connections
 
   # www is a static website that is hosted on nginx for the purpose of my-rust-app to be able to access it
   # it is separate from my-rust-app because the nginx:latest image could be using alpine instead of debian
   # as well as it is a good practice to separate the static website from the dynamic web-app
   www:
     hostname: www
+    restart: unless-stopped
     # rather than using apache2, we use nginx with static html files
     image: nginx:latest
     volumes:
@@ -126,7 +137,6 @@ services:
       VIRTUAL_PROTO: "https"
       VIRTUAL_PORT: "80,443"
       MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
-    #restart: unless-stopped
     networks:
       my-rust-app-network:
         # create aliases so that each container can communicate with each other via their FQDN rather than hostname
@@ -142,10 +152,12 @@ services:
   # though it's an overkill, I like the concept of persisting/caching
   # auth token in redis
   redis:
+    hostname: redis
+    restart: unless-stopped
     image: redis:latest
     command: redis-server
     ports:
-      - 6379
+      - 6379:6379
     # if and when we decide to persist the redis data, we can use this volume, but for now, we just need to cache it
     #volumes:
     #  - redis-data:/data
@@ -153,6 +165,9 @@ services:
       VIRTUAL_HOST: "redis.${FQ_DOMAIN_NAME}"
       VIRTUAL_PROTO: "https"
       VIRTUAL_PORT: "6379"
+    networks:
+      # make sure that the redis container is on the same network as the other containers or else interal-developers won't be able to access it!
+      my-rust-app-network: {}
 
   my-rust-app:
     hostname: my-rust-app
@@ -168,7 +183,7 @@ services:
       VIRTUAL_PROTO: "https"
       VIRTUAL_PORT: "${MY_RUST_APP_PORT}"
       MY_RUST_APP_PORT: "${MY_RUST_APP_PORT}"
-    command: 
+    command:
       - "/usr/local/bin/my_rust_app"
       - "--port=${MY_RUST_APP_PORT}"
     networks:
@@ -180,6 +195,7 @@ services:
           - my-rust-app.${FQ_DOMAIN_NAME}
     # create secure ONE-WAY-tunnels to these containers:
     links:
-      - internal-developers
+      - internal-developers # in case cookie expired, we'd want to sign_in again
+      - redis # we want to query redis for the auth token
   #volumes:
   #  redis-data:

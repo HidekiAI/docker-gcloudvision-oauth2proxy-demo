@@ -256,7 +256,11 @@ fn main() {
                         true => {
                             match http_uri.path() {
                                 "/oauth2/callback" => {
-                                    // Return a response with a 200 OK status code
+                                    // Since we're persisting both username and auth-token in redis,
+                                    // we really don't need to do anything here as long as
+                                    // the U.I./view side is able to always know the username.
+                                    // Based on the username, we can internally in this app,
+                                    // query redis to get the auth-token.
                                     let response = hyper::Response::builder()
                                         .status(StatusCode::OK)
                                         .body(Body::from(
@@ -265,7 +269,29 @@ fn main() {
                                         .unwrap();
                                     let ret_response: Result<Response<Body>, &str> = Ok(response);
                                     ret_response
-                                }
+                                },
+                                "/image" => {
+                                    // Return a response with a 200 OK status code
+                                    let response = hyper::Response::builder()
+                                        .status(StatusCode::OK)
+                                        .body(Body::from(
+                                            "place holder to request at '/image' path",
+                                        ))
+                                        .unwrap();
+                                    let ret_response: Result<Response<Body>, &str> = Ok(response);
+                                    ret_response
+                                },
+                                "/" => {
+                                    // Return a response with a 200 OK status code
+                                    let response = hyper::Response::builder()
+                                        .status(StatusCode::OK)
+                                        .body(Body::from(
+                                            "place holder to request at '/' path",
+                                        ))
+                                        .unwrap();
+                                    let ret_response: Result<Response<Body>, &str> = Ok(response);
+                                    ret_response
+                                },
                                 _ => {
                                     // default routing path
                                     let response = hyper::Response::builder()
@@ -307,7 +333,7 @@ fn main() {
 
         // Await the `server` receiving the signal...
         if let Err(e) = graceful.await {
-            eprintln!("server error: {}", e);
+            eprintln!("[my-rust-app] server error: {}", e);
         }
 
         // And later, trigger the signal by calling `tx.send(())`.
