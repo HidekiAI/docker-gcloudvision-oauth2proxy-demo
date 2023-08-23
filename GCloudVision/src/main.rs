@@ -112,7 +112,7 @@ fn main() {
     // get port from command line argument
     let port = get_port_from_command_line_argument(args);
     // listen to port 666 for HTTP/1.1 requests (requires sudo privileges to bind to listener port)
-    let listen_address_ipv4 = SocketAddr::from(([127, 0, 0, 1], port)); // NOTE: assumes IPv4 address for now
+    let listen_address_ipv4 = SocketAddr::from(([0, 0, 0, 0], port)); // NOTE: assumes IPv4 address for now
     println!("Listening on http://{}", listen_address_ipv4);
 
     // Create a hyper service that listens for HTTP/1.1 requests
@@ -262,7 +262,7 @@ fn main() {
                                     // Based on the username, we can internally in this app,
                                     // query redis to get the auth-token.
                                     let response = hyper::Response::builder()
-                                        .status(StatusCode::OK)
+                                        .status(StatusCode::ACCEPTED)
                                         .body(Body::from(
                                             "place holder to request at '/oauth2/callback' path",
                                         ))

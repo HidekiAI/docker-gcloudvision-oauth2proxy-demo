@@ -77,7 +77,14 @@ services:
       - "--session-store-type=redis"
       - "--redis-connection-url=redis://redis:6379/1"
       # use "--upstream=static://202" if you are having trouble with your firewall blocking the connections to my-rust-app host or something as a temporary workaround just to verify that whole round trip works
-      - "--upstream=http://my-rust-app:${MY_RUST_APP_PORT}/"  # use comma-separated (no-spaces) list of upstreams if you have more than one (note that arg is singular "upstream")
+      - "--upstream=http://my-rust-app:${MY_RUST_APP_PORT}/,http://my-rust-app:${MY_RUST_APP_PORT}/oauth2/,http://my-rust-app:${MY_RUST_APP_PORT}/oauth2/callback,http://my-rust-app/index.html"  # use comma-separated (no-spaces) list of upstreams if you have more than one (note that arg is singular "upstream")
+
+# docker-gcloudvision-oauth2proxy-internal-developers-1  | [2023/08/23 15:09:06] [proxy.go:89] mapping path "/oauth2/callback" => upstream "http://my-rust-app:666/oauth2/callback"
+# docker-gcloudvision-oauth2proxy-internal-developers-1  | [2023/08/23 15:09:06] [proxy.go:89] mapping path "/index.html" => upstream "http://my-rust-app/index.html"
+# docker-gcloudvision-oauth2proxy-internal-developers-1  | [2023/08/23 15:09:06] [proxy.go:89] mapping path "/oauth2/" => upstream "http://my-rust-app:666/oauth2/"
+# docker-gcloudvision-oauth2proxy-internal-developers-1  | [2023/08/23 15:09:06] [proxy.go:89] mapping path "/" => upstream "http://my-rust-app:666/"
+# docker-gcloudvision-oauth2proxy-internal-developers-1  | [2023/08/23 15:09:06] [oauthproxy.go:162] OAuthProxy configured for Google Client ID: 1094731870219-gu52jvrab6o8ro9g6qcp72t2teivub2h.apps.googleusercontent.com
+# docker-gcloudvision-oauth2proxy-internal-developers-1  | [2023/08/23 15:09:06] [oauthproxy.go:168] Cookie settings: name:_oauth2_proxy secure(https):false httponly:true expiry:168h0m0s domains: path:/ samesite: refresh:disabled
 
     # port-forward 4180 on THIS machine to 4180 in the container
     ports:
