@@ -76,6 +76,8 @@ services:
       # See: https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/session_storage/#redis-storage
       - "--session-store-type=redis"
       - "--redis-connection-url=redis://redis:6379/1"
+      # use "--upstream=static://202" if you are having trouble with your firewall blocking the connections to my-rust-app host or something as a temporary workaround just to verify that whole round trip works
+      - "--upstream=http://my-rust-app:${MY_RUST_APP_PORT}/"  # use comma-separated (no-spaces) list of upstreams if you have more than one (note that arg is singular "upstream")
 
     # port-forward 4180 on THIS machine to 4180 in the container
     ports:
@@ -99,7 +101,8 @@ services:
       #$ export OAUTH2_PROXY_COOKIE_SECRET: ""$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d -- '\n' | tr -- '+/' '-_'; echo)""
       # IMPORTANT: "DO _NOT_ place quotation marks around the value of the env-var, otherwise it'll be treated as a string instead of a command causing base64 to be +2 bytes more than it should be"
       OAUTH2_PROXY_COOKIE_SECRET: "${OAUTH2_PROXY_COOKIE_SECRET}"
-      OAUTH2_PROXY_UPSTREAMS: "http://my-rust-app:${MY_RUST_APP_PORT}"
+      OAUTH2_PROXY_UPSTREAMS: "http://my-rust-app:${MY_RUST_APP_PORT}/"
+      OAUTH2_PROXY_UPSTREAM: "http://my-rust-app:${MY_RUST_APP_PORT}/"
     volumes:
       - "./oauth2_proxy.cfg:/etc/oauth2_proxy.cfg:ro"
       - "./www/internal-developers:/usr/share/nginx/html:ro"
@@ -169,6 +172,8 @@ services:
       # make sure that the redis container is on the same network as the other containers or else interal-developers won't be able to access it!
       my-rust-app-network: {}
 
+  # this is the "upstream" app (final destination) of where the oauth2-proxy will forward the request to
+  # see: https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/overview#upstreams-configuration
   my-rust-app:
     hostname: my-rust-app
     image: my-rust-app-image:latest
